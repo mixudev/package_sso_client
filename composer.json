@@ -52,9 +52,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Mixu\\SSOAuth\\": "src/",
-            "Mixu\\SSOAuth\\Database\\Migrations\\": "src/database/migrations/",
-            "Mixu\\SSOAuth\\Database\\Seeders\\": "src/database/seeders/"
+            "Mixu\\SSOAuth\\": "src/"
         }
     },
     "autoload-dev": {
