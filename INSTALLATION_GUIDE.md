@@ -76,7 +76,23 @@ Ini akan membuat tabel:
 - `session_activities` - Untuk audit trail
 - `security_events` - Untuk security monitoring
 
-### 5. Register Middleware
+### 5. Verify Routes Auto-Loaded
+
+Routes sudah **otomatis ter-load** dari package. Verify dengan:
+
+```bash
+php artisan route:list | grep auth
+```
+
+Anda should see:
+- `GET /auth/login` → `auth.login`
+- `GET /auth/callback` → `auth.callback`
+- `POST /auth/logout` → `auth.logout`
+- `POST /auth/sso/logout-callback` → `sso.logout-callback`
+
+**Note**: Routes sudah diprefixed dengan `/auth` secara otomatis!
+
+### 6. Register Middleware
 
 Di Laravel 11+, middleware biasanya **otomatis ter-register** melalui package discovery. Jika tidak, daftarkan manual di `bootstrap/app.php`:
 
@@ -103,9 +119,9 @@ return Application::configure(basePath: dirname(__DIR__))
     })
 ```
 
-### 6. Setup Routes
+### 7. Setup Routes (Optional - Routes Already Auto-Loaded)
 
-Routes sudah otomatis di-load dari package. Jika perlu custom, publish routes:
+Routes sudah **otomatis ter-load** dari package tanpa perlu action apapun. Jika perlu customize, publish dengan:
 
 ```bash
 php artisan vendor:publish --tag=mixu-sso-auth-routes
@@ -113,7 +129,7 @@ php artisan vendor:publish --tag=mixu-sso-auth-routes
 
 Kemudian edit file `routes/sso-auth.php` sesuai kebutuhan.
 
-### 7. Create Login/Logout Links
+### 8. Create Login/Logout Links
 
 Di layout file Anda (e.g., `resources/views/layouts/app.blade.php`):
 

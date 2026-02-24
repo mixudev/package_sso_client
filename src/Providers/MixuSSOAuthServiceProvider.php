@@ -38,6 +38,15 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Load Routes FIRST (sebelum publish, agar bisa digunakan langsung)
+        $this->loadRoutesFrom(__DIR__ . '/../routes/sso-auth.php');
+
+        // Load Views
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'mixu-sso-auth');
+
+        // Load Migration Files
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
         // Publish Configuration (Default publish tag)
         $this->publishes([
             __DIR__ . '/../config/mixuauth.php' => config_path('mixuauth.php'),
@@ -69,14 +78,5 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
             'mixu-sso-auth-views',
             'mixu-sso-auth',
         ]);
-
-        // Load Migration Files
-        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
-
-        // Load Routes
-        $this->loadRoutesFrom(__DIR__ . '/../routes/sso-auth.php');
-
-        // Load Views
-        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'mixu-sso-auth');
     }
 }
