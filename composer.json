@@ -1,0 +1,78 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "mixu/sso-auth",
+    "type": "library",
+    "description": "Comprehensive Laravel SSO Authentication package with Security Monitoring, Session Binding, Activity Tracking, and Global Logout Support",
+    "keywords": [
+        "laravel",
+        "sso",
+        "oauth2",
+        "single-sign-on",
+        "authentication",
+        "security-monitoring",
+        "session-binding",
+        "session-hijacking-prevention",
+        "activity-tracking",
+        "audit-trail",
+        "brute-force-detection",
+        "anomaly-detection",
+        "role-based-access",
+        "area-based-access"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Mixu",
+            "email": "support@mixu.io",
+            "homepage": "https://mixu.io"
+        }
+    ],
+    "homepage": "https://github.com/mixu/sso-auth",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mixu/sso-auth.git"
+    },
+    "support": {
+        "issues": "https://github.com/mixu/sso-auth/issues",
+        "docs": "https://github.com/mixu/sso-auth/wiki",
+        "email": "support@mixu.io"
+    },
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^12.0",
+        "illuminate/database": "^12.0",
+        "illuminate/auth": "^12.0",
+        "illuminate/http": "^12.0",
+        "illuminate/contracts": "^12.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5.3",
+        "mockery/mockery": "^1.6",
+        "laravel/framework": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mixu\\SSOAuth\\": "src/",
+            "Mixu\\SSOAuth\\Database\\Migrations\\": "src/database/migrations/",
+            "Mixu\\SSOAuth\\Database\\Seeders\\": "src/database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Mixu\\SSOAuth\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Mixu\\SSOAuth\\Providers\\MixuSSOAuthServiceProvider"
+            ],
+            "aliases": {
+                "SSOAuth": "Mixu\\SSOAuth\\Facades\\SSOAuth",
+                "SecurityMonitoring": "Mixu\\SSOAuth\\Facades\\SecurityMonitoring"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
