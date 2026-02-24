@@ -192,8 +192,6 @@ git tag -a v2.0.0 -m "Refactor middleware structure"
 git push origin v2.0.0
 ```
 
-## Release Checklist
-
 Sebelum release ke Packagist:
 
 - ✅ Update CHANGELOG.md dengan semua changes
@@ -201,12 +199,57 @@ Sebelum release ke Packagist:
 - ✅ Run tests: `php artisan test`
 - ✅ Check coverage: `php artisan test --coverage`
 - ✅ Validate composer: `composer validate`
+- ✅ **Verify publish tags configured** (see "Package Structure & Asset Publishing")
 - ✅ Update documentation
 - ✅ Create clean commit: `git commit -m "v1.x.x release"`
 - ✅ Create tagged release: `git tag -a v1.x.x`
 - ✅ Push to GitHub: `git push && git push --tags`
 - ✅ Verify di Packagist
 - ✅ Test installation: `composer require mixu/sso-auth`
+
+## Package Structure & Asset Publishing
+
+Package sudah di-setup dengan publish tags yang optimal. Client bisa publish semua assets dengan **satu command**:
+
+```bash
+php artisan vendor:publish --tag=mixu-sso-auth
+```
+
+### Assets Included
+
+| Asset | Tag | Location |
+|-------|-----|----------|
+| Configuration | `mixu-sso-auth-config` | `config/mixuauth.php` |
+| Migrations | `mixu-sso-auth-migrations` | `database/migrations/` |
+| Routes | `mixu-sso-auth-routes` | `routes/sso-auth.php` |
+| Views | `mixu-sso-auth-views` | `resources/views/vendor/mixu-sso-auth/` |
+| **All Assets** | `mixu-sso-auth` | All above locations |
+
+### Service Provider Configuration
+
+File `src/Providers/MixuSSOAuthServiceProvider.php` mengkonfigurasi semua publish tags:
+
+```php
+// Publish Configuration
+$this->publishes([...], ['mixu-sso-auth-config', 'mixu-sso-auth']);
+
+// Publish Migrations
+$this->publishes([...], ['mixu-sso-auth-migrations', 'mixu-sso-auth']);
+
+// Publish Routes
+$this->publishes([...], ['mixu-sso-auth-routes', 'mixu-sso-auth']);
+
+// Publish Views
+$this->publishes([...], ['mixu-sso-auth-views', 'mixu-sso-auth']);
+```
+
+**Note**: Setiap asset memiliki **dua tags**:
+1. Specific tag (e.g., `mixu-sso-auth-config`) - untuk publish asset tertentu
+2. Default tag (`mixu-sso-auth`) - untuk publish semua assets sekaligus
+
+Ini memudahkan client untuk publish semua atau hanya asset yang diperlukan.
+
+## Release Checklist
 
 ## Maintenance
 

@@ -20,26 +20,34 @@ composer require mixu/sso-auth
 
 ### 2. Publish Package Assets
 
-#### Publish Configuration File
+#### Quick Publish All Assets (Recommended)
 
 ```bash
-php artisan vendor:publish --provider="Mixu\\SSOAuth\\Providers\\MixuSSOAuthServiceProvider" --tag=mixu-sso-auth-config
+php artisan vendor:publish --tag=mixu-sso-auth
 ```
 
-File config akan berada di `config/mixuauth.php`
+Ini akan publish semua assets sekaligus:
+- ✅ Configuration file → `config/mixuauth.php`
+- ✅ Database migrations → `database/migrations/`
+- ✅ Routes → `routes/sso-auth.php`
+- ✅ Views → `resources/views/vendor/mixu-sso-auth/`
 
-#### Publish Migrations
+#### Publish Individual Assets (Optional)
 
-```bash
-php artisan vendor:publish --provider="Mixu\\SSOAuth\\Providers\\MixuSSOAuthServiceProvider" --tag=mixu-sso-auth-migrations
-```
-
-Migrations akan berada di `database/migrations/`
-
-#### Publish Routes (Optional)
+Jika hanya ingin publish asset tertentu:
 
 ```bash
-php artisan vendor:publish --provider="Mixu\\SSOAuth\\Providers\\MixuSSOAuthServiceProvider" --tag=mixu-sso-auth-routes
+# Config only
+php artisan vendor:publish --tag=mixu-sso-auth-config
+
+# Migrations only
+php artisan vendor:publish --tag=mixu-sso-auth-migrations
+
+# Routes only
+php artisan vendor:publish --tag=mixu-sso-auth-routes
+
+# Views only
+php artisan vendor:publish --tag=mixu-sso-auth-views
 ```
 
 ### 3. Configure Environment Variables
@@ -68,9 +76,9 @@ Ini akan membuat tabel:
 - `session_activities` - Untuk audit trail
 - `security_events` - Untuk security monitoring
 
-### 5. Register Middleware (jika belum auto-discover)
+### 5. Register Middleware
 
-Di `bootstrap/app.php` atau `app/Http/Kernel.php`, daftarkan middleware:
+Di Laravel 11+, middleware biasanya **otomatis ter-register** melalui package discovery. Jika tidak, daftarkan manual di `bootstrap/app.php`:
 
 ```php
 use Mixu\SSOAuth\Http\Middleware\EnsureSSOAuthenticated;
@@ -81,26 +89,26 @@ use Mixu\SSOAuth\Http\Middleware\TrackSessionActivity;
 use Mixu\SSOAuth\Http\Middleware\CheckRole;
 use Mixu\SSOAuth\Http\Middleware\CheckAccessArea;
 
-// Bootstrap/app.php (Laravel 11+)
-->withMiddleware(function (Middleware $middleware) {
-    $middleware->alias([
-        'sso.auth' => EnsureSSOAuthenticated::class,
-        'sso.alive' => EnsureSSOSessionAlive::class,
-        'validate.session.ip' => ValidateSessionIP::class,
-        'validate.session.ua' => ValidateSessionUserAgent::class,
-        'track.activity' => TrackSessionActivity::class,
-        'role' => CheckRole::class,
-        'access_area' => CheckAccessArea::class,
-    ]);
-})
+return Application::configure(basePath: dirname(__DIR__))
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->alias([
+            'sso.auth' => EnsureSSOAuthenticated::class,
+            'sso.alive' => EnsureSSOSessionAlive::class,
+            'validate.session.ip' => ValidateSessionIP::class,
+            'validate.session.ua' => ValidateSessionUserAgent::class,
+            'track.activity' => TrackSessionActivity::class,
+            'role' => CheckRole::class,
+            'access_area' => CheckAccessArea::class,
+        ]);
+    })
 ```
 
 ### 6. Setup Routes
 
-Routes sudah otomatis di-load. Jika perlu custom, publish routes:
+Routes sudah otomatis di-load dari package. Jika perlu custom, publish routes:
 
 ```bash
-php artisan vendor:publish --provider="Mixu\\SSOAuth\\Providers\\MixuSSOAuthServiceProvider" --tag=mixu-sso-auth-routes
+php artisan vendor:publish --tag=mixu-sso-auth-routes
 ```
 
 Kemudian edit file `routes/sso-auth.php` sesuai kebutuhan.
@@ -258,6 +266,22 @@ php artisan config:cache
 **Solution:**
 1. Nonaktifkan IP validation jika di behind proxy
 2. Atau allow IP range change dengan custom middleware
+
+### Error: "Assets not published"
+
+**Penyebab:** Lupa publish assets setelah install
+
+**Solution:**
+```bash
+# Publish semua assets sekaligus
+php artisan vendor:publish --tag=mixu-sso-auth
+
+# Atau publish specific asset saja
+php artisan vendor:publish --tag=mixu-sso-auth-config
+php artisan vendor:publish --tag=mixu-sso-auth-migrations
+php artisan vendor:publish --tag=mixu-sso-auth-routes
+php artisan vendor:publish --tag=mixu-sso-auth-views
+```
 
 ## Production Checklist
 
