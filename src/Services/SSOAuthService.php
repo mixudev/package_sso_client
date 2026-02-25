@@ -15,7 +15,27 @@ class SSOAuthService
 
     public function __construct()
     {
-        $this->config = config('services.mixuauth', []);
+        // Get config dengan fallback ke array kosong
+        $config = config('services.mixuauth');
+        
+        // Handle jika config berupa array, jika null/boolenan convert ke array
+        if (! is_array($config)) {
+            $config = [];
+        }
+        
+        // Set config dengan default values untuk safety
+        $this->config = array_merge([
+            'base_url' => null,
+            'client_id' => null,
+            'client_secret' => null,
+            'redirect_uri' => null,
+            'scopes' => '',
+            'authorize_url' => '/oauth/authorize',
+            'token_url' => '/oauth/token',
+            'user_url' => '/api/user',
+            'revoke_url' => '/oauth/revoke',
+            'webhook_secret' => null,
+        ], $config);
     }
 
     /**

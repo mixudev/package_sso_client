@@ -91,10 +91,10 @@ SSO_WEBHOOK_SECRET=your-webhook-secret
 
 ## Support
 
-- 📖 Documentation: [README.md](README.md)
-- 🚀 Quick Start: [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md)
-- 🐛 Issues: [GitHub Issues](https://github.com/mixu/sso-auth/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/mixu/sso-auth/discussions)
+-  Documentation: [README.md](README.md)
+-  Quick Start: [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md)
+-  Issues: [GitHub Issues](https://github.com/mixu/sso-auth/issues)
+-  Discussions: [GitHub Discussions](https://github.com/mixu/sso-auth/discussions)
 
 ---
 

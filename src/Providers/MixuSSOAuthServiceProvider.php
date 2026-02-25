@@ -5,6 +5,7 @@ namespace Mixu\SSOAuth\Providers;
 use Illuminate\Support\ServiceProvider;
 use Mixu\SSOAuth\Services\SSOAuthService;
 use Mixu\SSOAuth\Services\SecurityMonitoringService;
+use Mixu\SSOAuth\Console\Commands\CheckSSOConfig;
 
 class MixuSSOAuthServiceProvider extends ServiceProvider
 {
@@ -38,7 +39,14 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Load Routes FIRST (sebelum publish, agar bisa digunakan langsung)
+        // Register Commands
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                CheckSSOConfig::class,
+            ]);
+        }
+
+        // Load Routes (sudah ada config dari register())
         $this->loadRoutesFrom(__DIR__ . '/../routes/sso-auth.php');
 
         // Load Views
@@ -47,23 +55,23 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
         // Load Migration Files
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
-        // Publish Configuration (Default publish tag)
+        // Publish Configuration
         $this->publishes([
             __DIR__ . '/../config/mixuauth.php' => config_path('mixuauth.php'),
         ], [
             'mixu-sso-auth-config',
-            'mixu-sso-auth', // Default tag untuk publish semua
+            'mixu-sso-auth',
         ]);
 
-        // Publish Database Migrations (Default publish tag)
+        // Publish Database Migrations
         $this->publishes([
             __DIR__ . '/../database/migrations' => database_path('migrations'),
         ], [
             'mixu-sso-auth-migrations',
-            'mixu-sso-auth', // Default tag untuk publish semua
+            'mixu-sso-auth',
         ]);
 
-        // Publish Routes (optional)
+        // Publish Routes
         $this->publishes([
             __DIR__ . '/../routes/sso-auth.php' => base_path('routes/sso-auth.php'),
         ], [
@@ -80,3 +88,4 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
         ]);
     }
 }
+

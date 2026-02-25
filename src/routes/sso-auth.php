@@ -22,5 +22,8 @@ Route::prefix('auth')->name('auth.')->group(function () {
         ->middleware('throttle:10,1');
 });
 
-// Global Logout webhook (POST dari SSO Server) - tanpa CSRF protection
 // Verifikasi via HMAC signature dari webhook secret
+// Global Logout webhook (dari SSO Server) - tanpa CSRF, verifikasi via HMAC signature
+Route::post('/auth/sso/logout-callback', [SsoLogoutCallbackController::class, 'handle'])
+    ->name('sso.logout-callback')
+    ->withoutMiddleware([ValidateCsrfToken::class]);

@@ -76,21 +76,33 @@ Ini akan membuat tabel:
 - `session_activities` - Untuk audit trail
 - `security_events` - Untuk security monitoring
 
-### 5. Verify Routes Auto-Loaded
+### 5. Verify Configuration
 
-Routes sudah **otomatis ter-load** dari package. Verify dengan:
+Pastikan semua environment variables ter-set dan config loaded dengan benar:
 
 ```bash
-php artisan route:list | grep auth
+php artisan sso:check
 ```
 
-Anda should see:
-- `GET /auth/login` → `auth.login`
-- `GET /auth/callback` → `auth.callback`
-- `POST /auth/logout` → `auth.logout`
-- `POST /auth/sso/logout-callback` → `sso.logout-callback`
+Output seharusnya:
+```
+🔍 Checking SSO Configuration...
 
-**Note**: Routes sudah diprefixed dengan `/auth` secara otomatis!
+📋 Environment Variables:
+  ✅ AUTH_BASE_URL = https://auth.yourcompany.com
+  ✅ AUTH_CLIENT_ID = xxxxx
+  ✅ AUTH_CLIENT_SECRET = [hidden]
+  ✅ AUTH_REDIRECT_URI = http://localhost:8000/auth/callback
+
+⚙️  SSO Configuration (services.mixuauth):
+  ✅ base_url = https://auth.yourcompany.com
+  ✅ client_id = xxxxx
+  ✅ client_secret = [hidden]
+  ✅ redirect_uri = http://localhost:8000/auth/callback
+  ✅ scopes = openid profile email
+
+✅ SSO is fully configured and ready to use!
+```
 
 ### 6. Register Middleware
 
@@ -119,15 +131,29 @@ return Application::configure(basePath: dirname(__DIR__))
     })
 ```
 
-### 7. Setup Routes (Optional - Routes Already Auto-Loaded)
+### 7. Setup Routes 
 
-Routes sudah **otomatis ter-load** dari package tanpa perlu action apapun. Jika perlu customize, publish dengan:
+Routes sudah **otomatis ter-load** dari package dan ada beberapa yang perlu ditambahkan:
 
+Di web.php tambahkan ini di paling bawah :
 ```bash
-php artisan vendor:publish --tag=mixu-sso-auth-routes
+require __DIR__.'/sso-auth.php';
 ```
 
-Kemudian edit file `routes/sso-auth.php` sesuai kebutuhan.
+Tambahkan juga route untuk redirect dashboard dan home (custom sesuai kebutuhan sistem):
+```bash
+// contoh route dashboard 
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware('sso.auth')->name('dashboard');
+
+// contoh route home
+Route::get('/', function () {
+    return view('welcome');
+})->name('home');
+```
+
+Kemudian untuk custom bisa edit file `routes/sso-auth.php` sesuai kebutuhan.
 
 ### 8. Create Login/Logout Links
 
@@ -250,6 +276,42 @@ class SSOAuthTest extends TestCase
 ```
 
 ## Troubleshooting
+
+### Error: HTTP 500 saat akses routes SSO
+
+**Penyebab:** Configuration belum lengkap atau environment variables tidak ter-set
+
+**Solution:**
+1. Jalankan diagnostic command:
+```bash
+php artisan sso:check
+```
+
+2. Jika ada MISSING/EMPTY, set environment variables di `.env`:
+```env
+AUTH_BASE_URL=https://auth.yourcompany.com
+AUTH_CLIENT_ID=your-client-id
+AUTH_CLIENT_SECRET=your-client-secret
+AUTH_REDIRECT_URI=http://localhost:8000/auth/callback
+AUTH_SCOPES=openid profile email
+```
+
+3. Clear config cache:
+```bash
+php artisan config:clear
+php artisan config:cache
+```
+
+4. Check Laravel logs untuk detail error:
+```bash
+tail -f storage/logs/laravel.log
+```
+
+5. Pastikan sudah publish assets:
+```bash
+php artisan vendor:publish --tag=mixu-sso-auth
+php artisan migrate
+```
 
 ### Error: "SSO not configured"
 
