@@ -27,10 +27,10 @@ php artisan vendor:publish --tag=mixu-sso-auth
 ```
 
 Ini akan publish semua assets sekaligus:
-- ✅ Configuration file → `config/mixuauth.php`
-- ✅ Database migrations → `database/migrations/`
-- ✅ Routes → `routes/sso-auth.php`
-- ✅ Views → `resources/views/vendor/mixu-sso-auth/`
+-  Configuration file → `config/mixuauth.php`
+-  Database migrations → `database/migrations/`
+-  Routes → `routes/sso-auth.php`
+-  Views → `resources/views/vendor/mixu-sso-auth/`
 
 #### Publish Individual Assets (Optional)
 
@@ -57,13 +57,16 @@ Di file `.env`, tambahkan:
 ```env
 # SSO Configuration
 AUTH_BASE_URL=https://auth.yourcompany.com
+
 AUTH_CLIENT_ID=your-client-id-from-sso
 AUTH_CLIENT_SECRET=your-client-secret-from-sso
+
 AUTH_REDIRECT_URI=http://localhost:8000/auth/callback
-AUTH_SCOPES=openid profile email
+AUTH_SCOPES=openid_profile_email
+
 SSO_WEBHOOK_SECRET=your-webhook-secret-for-global-logout
 ```
-
+Didapatkan dari SSO_Server
 **Important:** Gunakan HTTPS untuk AUTH_BASE_URL di production!
 
 ### 4. Run Database Migrations
@@ -86,22 +89,22 @@ php artisan sso:check
 
 Output seharusnya:
 ```
-🔍 Checking SSO Configuration...
+Checking SSO Configuration...
 
-📋 Environment Variables:
+Environment Variables:
   ✅ AUTH_BASE_URL = https://auth.yourcompany.com
   ✅ AUTH_CLIENT_ID = xxxxx
   ✅ AUTH_CLIENT_SECRET = [hidden]
   ✅ AUTH_REDIRECT_URI = http://localhost:8000/auth/callback
 
-⚙️  SSO Configuration (services.mixuauth):
+SSO Configuration (services.mixuauth):
   ✅ base_url = https://auth.yourcompany.com
   ✅ client_id = xxxxx
   ✅ client_secret = [hidden]
   ✅ redirect_uri = http://localhost:8000/auth/callback
   ✅ scopes = openid profile email
 
-✅ SSO is fully configured and ready to use!
+SSO is fully configured and ready to use!
 ```
 
 ### 6. Register Middleware
@@ -116,6 +119,7 @@ use Mixu\SSOAuth\Http\Middleware\ValidateSessionUserAgent;
 use Mixu\SSOAuth\Http\Middleware\TrackSessionActivity;
 use Mixu\SSOAuth\Http\Middleware\CheckRole;
 use Mixu\SSOAuth\Http\Middleware\CheckAccessArea;
+use Mixu\SSOAuth\Http\Middleware\LogAuditTrail;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
@@ -125,6 +129,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'validate.session.ip' => ValidateSessionIP::class,
             'validate.session.ua' => ValidateSessionUserAgent::class,
             'track.activity' => TrackSessionActivity::class,
+            'audit.trail' => LogAuditTrail::class,
             'role' => CheckRole::class,
             'access_area' => CheckAccessArea::class,
         ]);

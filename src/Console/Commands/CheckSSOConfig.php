@@ -12,7 +12,7 @@ class CheckSSOConfig extends Command
      *
      * @var string
      */
-    protected $signature = 'sso:check {--verbose}';
+    protected $signature = 'sso:check';
 
     /**
      * The console command description.
@@ -26,11 +26,11 @@ class CheckSSOConfig extends Command
      */
     public function handle()
     {
-        $this->info('🔍 Checking SSO Configuration...');
+        $this->info('Checking SSO Configuration...');
         $this->newLine();
 
         // Check environment variables
-        $this->info('📋 Environment Variables:');
+        $this->info('Environment Variables:');
         $envVars = [
             'AUTH_BASE_URL' => env('AUTH_BASE_URL'),
             'AUTH_CLIENT_ID' => env('AUTH_CLIENT_ID'),
@@ -48,7 +48,7 @@ class CheckSSOConfig extends Command
         $this->newLine();
 
         // Check config
-        $this->info('⚙️  SSO Configuration (services.mixuauth):');
+        $this->info('SSO Configuration (services.mixuauth):');
         $config = config('services.mixuauth', []);
         
         if (empty($config)) {

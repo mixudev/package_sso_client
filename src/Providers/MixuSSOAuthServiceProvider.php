@@ -58,34 +58,30 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
         // Publish Configuration
         $this->publishes([
             __DIR__ . '/../config/mixuauth.php' => config_path('mixuauth.php'),
-        ], [
-            'mixu-sso-auth-config',
-            'mixu-sso-auth',
-        ]);
+        ], 'mixu-sso-auth-config');
 
         // Publish Database Migrations
         $this->publishes([
             __DIR__ . '/../database/migrations' => database_path('migrations'),
-        ], [
-            'mixu-sso-auth-migrations',
-            'mixu-sso-auth',
-        ]);
+        ], 'mixu-sso-auth-migrations');
 
         // Publish Routes
         $this->publishes([
             __DIR__ . '/../routes/sso-auth.php' => base_path('routes/sso-auth.php'),
-        ], [
-            'mixu-sso-auth-routes',
-            'mixu-sso-auth',
-        ]);
+        ], 'mixu-sso-auth-routes');
 
         // Publish Views
         $this->publishes([
             __DIR__ . '/../resources/views' => resource_path('views/vendor/mixu-sso-auth'),
-        ], [
-            'mixu-sso-auth-views',
-            'mixu-sso-auth',
-        ]);
+        ], 'mixu-sso-auth-views');
+
+        // Publish all assets with common tag
+        $this->publishes([
+            __DIR__ . '/../config/mixuauth.php' => config_path('mixuauth.php'),
+            __DIR__ . '/../database/migrations' => database_path('migrations'),
+            __DIR__ . '/../routes/sso-auth.php' => base_path('routes/sso-auth.php'),
+            __DIR__ . '/../resources/views' => resource_path('views/vendor/mixu-sso-auth'),
+        ], 'mixu-sso-auth');
     }
 }
 
