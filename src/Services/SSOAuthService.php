@@ -10,31 +10,29 @@ class SSOAuthService
 {
     protected array $config;
 
-    /** Detail error terakhir untuk debugging (step, message, url, status, body, suggestion) */
+    /** Detail error terakhir untuk debugging */
     protected array $lastError = [];
 
     public function __construct()
     {
-        // Get config dengan fallback ke array kosong
+        
         $config = config('services.mixuauth');
         
-        // Handle jika config berupa array, jika null/boolenan convert ke array
         if (! is_array($config)) {
             $config = [];
         }
         
-        // Set config dengan default values untuk safety
         $this->config = array_merge([
-            'base_url' => null,
-            'client_id' => null,
-            'client_secret' => null,
-            'redirect_uri' => null,
-            'scopes' => '',
-            'authorize_url' => '/oauth/authorize',
-            'token_url' => '/oauth/token',
-            'user_url' => '/api/user',
-            'revoke_url' => '/oauth/revoke',
-            'webhook_secret' => null,
+            'base_url'          => null,
+            'client_id'         => null,
+            'client_secret'     => null,
+            'redirect_uri'      => null,
+            'scopes'            => '',
+            'authorize_url'     => '/oauth/authorize',
+            'token_url'         => '/oauth/token',
+            'user_url'          => '/api/user',
+            'revoke_url'        => '/oauth/revoke',
+            'webhook_secret'    => null,
         ], $config);
     }
 
@@ -146,9 +144,9 @@ class SSOAuthService
     }
 
     /**
-     * Ambil profil user dari MixuAuth (GET /api/user).
-     * Mendukung format: object langsung atau dibungkus dalam "data".
-     * roles/access_areas: array string atau array object dengan key "name"/"slug".
+     * Ambil profil user (GET /api/user).
+     * Mendukung format     : object langsung atau dibungkus dalam "data".
+     * roles/access_areas   : array string atau array object dengan key "name"/"slug".
      *
      * @return array{id: int, name: string, email: string, roles: array, access_areas: array}|null
      */
@@ -165,7 +163,7 @@ class SSOAuthService
 
         if (! $response->successful()) {
             $suggestion = '401: Token tidak diterima — di SSO pastikan config/auth.php guard api pakai driver passport. ';
-            $suggestion .= '404: URL salah — pastikan AUTH_BASE_URL benar (mis. http://sso.test atau http://127.0.0.1:8000). ';
+            $suggestion .= '404: URL salah — pastikan AUTH_BASE_URL benar. ';
             $suggestion .= '5xx: Cek log SSO.';
             $this->setLastError(
                 'get_user',

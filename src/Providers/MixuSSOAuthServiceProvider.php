@@ -80,7 +80,7 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
             __DIR__ . '/../config/mixuauth.php' => config_path('mixuauth.php'),
             __DIR__ . '/../database/migrations' => database_path('migrations'),
             __DIR__ . '/../routes/sso-auth.php' => base_path('routes/sso-auth.php'),
-            __DIR__ . '/../resources/views' => resource_path('views/vendor/mixu-sso-auth'),
+            // __DIR__ . '/../resources/views' => resource_path('views/vendor/mixu-sso-auth'),
         ], 'mixu-sso-auth');
     }
 }

@@ -24,14 +24,32 @@ Route::post('/auth/sso/logout-callback', [SsoLogoutCallbackController::class, 'h
     ->name('sso.logout-callback')
     ->withoutMiddleware([ValidateCsrfToken::class]);
 
-Route::middleware(['sso.auth', 'sso.alive', 'validate.session.ip', 'track.activity', 'audit.trail'])->group(function () {
-    
+Route::middleware([
+    'sso.auth', 
+    'sso.alive', 
+    'validate.session.ip', 
+    // 'track.activity', 
+    'audit.trail'
+])->group(function () {
     // Security monitoring routes
-    Route::get('/security', [SecurityController::class, 'dashboard'])->name('security.dashboard');
-    Route::get('/security/page-access', [SecurityController::class, 'pageAccessLogs'])->name('security.page-access');
-    Route::get('/security/events', [SecurityController::class, 'securityEvents'])->name('security.events');
-    Route::get('/security/audit', [SecurityController::class, 'auditLogs'])->name('security.audit');
-    Route::get('/security/user-activity', [SecurityController::class, 'userActivity'])->name('security.user-activity');
-    Route::get('/security/check-brute-force', [SecurityController::class, 'checkBruteForce'])->name('security.check-brute-force');
-    Route::get('/security/export-logs', [SecurityController::class, 'exportLogs'])->name('security.export-logs');
+    Route::get('/security', [SecurityController::class, 'dashboard'])
+        ->name('security.dashboard');
+        
+    Route::get('/security/page-access', [SecurityController::class, 'pageAccessLogs'])
+        ->name('security.page-access');
+
+    Route::get('/security/events', [SecurityController::class, 'securityEvents'])
+        ->name('security.events');
+
+    Route::get('/security/audit', [SecurityController::class, 'auditLogs'])
+        ->name('security.audit');
+
+    Route::get('/security/user-activity', [SecurityController::class, 'userActivity'])
+        ->name('security.user-activity');
+
+    Route::get('/security/check-brute-force', [SecurityController::class, 'checkBruteForce'])
+        ->name('security.check-brute-force');
+
+    Route::get('/security/export-logs', [SecurityController::class, 'exportLogs'])
+        ->name('security.export-logs');
 });
