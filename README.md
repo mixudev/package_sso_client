@@ -51,7 +51,8 @@ php artisan migrate
 
 ### Service Provider Otomatis
 
-Package akan secara otomatis terdaftar melalui package auto-discovery. Jika tidak, tambahkan di `config/app.php`:
+Package akan secara otomatis terdaftar melalui package auto-discovery. Jika tidak,
+tambahkan di `config/app.php`:
 
 ```php
 'providers' => [
@@ -66,9 +67,14 @@ Package akan secara otomatis terdaftar melalui package auto-discovery. Jika tida
 ],
 ```
 
+> **Catatan penting**: sejak Laravel 11 paket tidak lagi mengandalkan file
+> `Console/Kernel.php`. Jadwal (`schedule`) didefinisikan di provider atau
+> `routes/console.php` aplikasi. lihat bagian berikut untuk detail.
+
 ### Register Middleware
 
-Daftarkan middleware di `bootstrap/app.php` atau `Kernel.php`:
+Daftarkan middleware di `bootstrap/app.php` atau `app/Http/Kernel.php` milik
+aplikasi (package tidak memerlukan file kernel sendiri):
 
 ```php
 // Middleware untuk authentication & session validation
@@ -118,6 +124,34 @@ Route::middleware(['access_area:portal'])->group(function () {
 
 ```php
 use Mixu\SSOAuth\Services\SSOAuthService;
+```
+
+### 📆 Menjadwalkan Rebuild Statistik
+
+Perintah `security:stats` menghitung ulang statistik keamanan. Paket akan
+mendaftarkannya otomatis melalui service provider, sehingga tidak perlu kode
+di `Kernel.php`.
+
+Pastikan aplikasi memanggil scheduler setiap menit (cron):
+
+```cron
+* * * * * cd /path/to/project && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Jika ingin mengontrol sendiri jadwal, tambahkan snippet berikut di
+`routes/console.php` aplikasi:
+
+```php
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('security:stats --days=7')
+        ->hourly()
+        ->withoutOverlapping();
+```
+
+---
+
+
 use Mixu\SSOAuth\Services\SecurityMonitoringService;
 
 class DashboardController extends Controller

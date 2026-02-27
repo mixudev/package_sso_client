@@ -222,6 +222,27 @@ class SecurityController extends Controller
 @endif
 ```
 
+## Example 4.5: Scheduler Command
+
+Contoh penjadwalan otomatis perintah `security:stats`. Paket akan mendaftarkannya
+sendiri melalui service provider, jadi aplikasi hanya perlu menjalankan scheduler.
+Tambahkan entry cron berikut di server:
+
+```cron
+* * * * * cd /path/to/project && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Jika Anda ingin mendeklarasikan jadwal secara manual, tambahkan kode ini ke
+`routes/console.php` aplikasi:
+
+```php
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('security:stats --days=7')
+        ->hourly()
+        ->withoutOverlapping();
+```
+
 ## Example 5: Custom Middleware
 
 ### Custom IP Validation

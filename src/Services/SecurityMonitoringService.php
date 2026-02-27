@@ -395,24 +395,42 @@ class SecurityMonitoringService
     {
         $from = now()->subDays($days);
 
-        // Page access stats
-        $pageAccessByStatus = DB::table('session_activities')
-            ->where('created_at', '>=', $from)
-            ->groupBy('status_code')
-            ->selectRaw('status_code, COUNT(*) as count')
-            ->pluck('count', 'status_code')
-            ->toArray();
+        // try to read page access totals from summary
+        $dailyRows = DB::table('security_daily_stats')
+            ->where('date', '>=', $from->format('Y-m-d'))
+            ->get(['requests','logins','failed','successful','denied']);
 
-        $failedAccess = DB::table('session_activities')
-            ->where('status_code', '>=', 400)
-            ->where('created_at', '>=', $from)
-            ->count();
+        $totalRequests = $dailyRows->sum('requests');
+        $totalLogins = $dailyRows->sum('logins');
+        $totalFailed = $dailyRows->sum('failed');
+        $totalSuccessful = $dailyRows->sum('successful');
+        $totalDenied = $dailyRows->sum('denied');
 
-        $deniedAccess = DB::table('session_activities')
-            ->where('status_code', '>=', 403)
-            ->where('status_code', '<', 404)
-            ->where('created_at', '>=', $from)
-            ->count();
+        // fallback to raw log if summary empty
+        if ($dailyRows->isEmpty()) {
+            $pageAccessByStatus = DB::table('session_activities')
+                ->where('created_at', '>=', $from)
+                ->groupBy('status_code')
+                ->selectRaw('status_code, COUNT(*) as count')
+                ->pluck('count', 'status_code')
+                ->toArray();
+
+            $failedAccess = DB::table('session_activities')
+                ->where('status_code', '>=', 400)
+                ->where('created_at', '>=', $from)
+                ->count();
+
+            $deniedAccess = DB::table('session_activities')
+                ->where('status_code', '>=', 403)
+                ->where('status_code', '<', 404)
+                ->where('created_at', '>=', $from)
+                ->count();
+        } else {
+            // we don't need heavy breakdowns when using summary
+            $pageAccessByStatus = [];
+            $failedAccess = $totalFailed;
+            $deniedAccess = $totalDenied;
+        }
 
         // Top failed paths
         $topFailedPaths = DB::table('session_activities')
@@ -455,13 +473,8 @@ class SecurityMonitoringService
                 'days' => $days,
             ],
             'page_access' => [
-                'total_requests' => DB::table('session_activities')
-                    ->where('created_at', '>=', $from)
-                    ->count(),
-                'successful' => DB::table('session_activities')
-                    ->where('status_code', '<', 400)
-                    ->where('created_at', '>=', $from)
-                    ->count(),
+                'total_requests' => $totalRequests,
+                'successful' => $totalSuccessful,
                 'failed' => $failedAccess,
                 'denied' => $deniedAccess,
                 'by_status_code' => $pageAccessByStatus,
@@ -522,12 +535,22 @@ class SecurityMonitoringService
     {
         $from = now()->subDays($days);
 
-        $activity = DB::table('session_activities')
-            ->where('created_at', '>=', $from)
-            ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
-            ->groupBy('date')
+        // try to use daily summary for page_access
+        $activity = DB::table('security_daily_stats')
+            ->where('date', '>=', $from->format('Y-m-d'))
+            ->selectRaw('date as date, requests as count')
             ->orderBy('date')
             ->get();
+
+        // fallback if summary empty
+        if ($activity->isEmpty()) {
+            $activity = DB::table('session_activities')
+                ->where('created_at', '>=', $from)
+                ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
+                ->groupBy('date')
+                ->orderBy('date')
+                ->get();
+        }
 
         $events = DB::table('security_events')
             ->where('created_at', '>=', $from)

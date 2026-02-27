@@ -2,6 +2,16 @@
 
 @section('title', 'Dashboard')
 
+@push('head')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+    .chart-container { position: relative; }
+    .progress-fill { transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+    .animate-pulse-soft { animation: pulse-soft 2s infinite; }
+    @keyframes pulse-soft { 0%,100%{opacity:1} 50%{opacity:.6} }
+</style>
+@endpush
+
 @section('content')
 
 <!-- Page Header -->
@@ -48,9 +58,8 @@
 </div>
 @endif
 
-<!-- Metrics Row — 2 cols mobile, 4 cols desktop -->
+<!-- Metrics Row -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-6">
-
     @php
         $colorMap = [
             'blue'    => ['icon_bg'=>'bg-blue-500/10',    'icon_txt'=>'text-blue-400',    'val_txt'=>'dark:text-blue-400 text-blue-600',    'border'=>'dark:border-blue-500/10 border-blue-100'],
@@ -81,85 +90,141 @@
         <div class="text-xs dark:text-slate-500 text-slate-400 truncate">{!! $m['sub'] !!}</div>
     </div>
     @endforeach
-
 </div>
 
-<!-- Analytics Row — 1 col mobile, 2 cols desktop -->
+{{-- ============================================================
+     CHART ROW 1 — Traffic Trend (full width)
+     Data: $dailyStats = [['date'=>'2025-01-01','requests'=>120,'failed'=>5,'logins'=>30], ...]
+     ============================================================ --}}
+<div class="rounded-xl dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 p-4 sm:p-5 mb-5 sm:mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+        <div class="flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dark:text-slate-500 text-slate-400 flex-shrink-0">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <h3 class="text-sm font-semibold dark:text-slate-200 text-slate-700">Traffic & Login Trend</h3>
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-1 rounded-full bg-blue-500"></span><span class="dark:text-slate-400 text-slate-500">Requests</span></span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-1 rounded-full bg-emerald-500"></span><span class="dark:text-slate-400 text-slate-500">Logins</span></span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-1 rounded-full bg-red-500"></span><span class="dark:text-slate-400 text-slate-500">Failed</span></span>
+        </div>
+    </div>
+    <div class="chart-container" style="height:220px;">
+        <canvas id="trafficTrendChart"></canvas>
+    </div>
+</div>
+
+{{-- ============================================================
+     CHART ROW 2 — Access Status (Doughnut) + Event Severity (Bar)
+     ============================================================ --}}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 sm:mb-6">
 
-    <!-- Access Status Breakdown -->
+    <!-- Access Status Breakdown — Doughnut Chart -->
     <div class="rounded-xl dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 p-4 sm:p-5">
-        <div class="flex items-center gap-2 mb-4 sm:mb-5">
+        <div class="flex items-center gap-2 mb-4">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dark:text-slate-500 text-slate-400 flex-shrink-0">
-                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                <circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/>
             </svg>
             <h3 class="text-sm font-semibold dark:text-slate-200 text-slate-700">Access Status Breakdown</h3>
         </div>
         @php
-            $total = max($stats['page_access']['total_requests'] ?? 1, 1);
-            $bars = [
-                ['label'=>'Successful (2xx–3xx)', 'bg'=>'from-emerald-600 to-emerald-400', 'dot'=>'bg-emerald-500', 'pct'=>round(($stats['page_access']['successful'] ?? 0)/$total*100), 'val'=>number_format($stats['page_access']['successful'] ?? 0)],
-                ['label'=>'Denied (403)',          'bg'=>'from-orange-600 to-orange-400',   'dot'=>'bg-orange-500',  'pct'=>round(($stats['page_access']['denied'] ?? 0)/$total*100),    'val'=>number_format($stats['page_access']['denied'] ?? 0)],
-                ['label'=>'Failed (4xx–5xx)',      'bg'=>'from-red-600 to-red-400',         'dot'=>'bg-red-500',     'pct'=>round(($stats['page_access']['failed'] ?? 0)/$total*100),    'val'=>number_format($stats['page_access']['failed'] ?? 0)],
-            ];
+            $total    = max($stats['page_access']['total_requests'] ?? 1, 1);
+            $success  = $stats['page_access']['successful'] ?? 0;
+            $denied   = $stats['page_access']['denied'] ?? 0;
+            $failed   = $stats['page_access']['failed'] ?? 0;
         @endphp
-        <div class="flex flex-col gap-4">
-            @foreach($bars as $bar)
-            <div>
-                <div class="flex justify-between items-center mb-1.5 gap-2">
+        <div class="flex items-center gap-4">
+            <div class="chart-container flex-shrink-0" style="width:160px;height:160px;">
+                <canvas id="accessStatusChart"></canvas>
+            </div>
+            <div class="flex flex-col gap-3 min-w-0 flex-1">
+                @foreach([
+                    ['label'=>'Successful (2xx–3xx)', 'val'=>$success, 'pct'=>round($success/$total*100), 'dot'=>'bg-emerald-500', 'txt'=>'text-emerald-400'],
+                    ['label'=>'Denied (403)',          'val'=>$denied,  'pct'=>round($denied/$total*100),  'dot'=>'bg-orange-500',  'txt'=>'text-orange-400'],
+                    ['label'=>'Failed (4xx–5xx)',      'val'=>$failed,  'pct'=>round($failed/$total*100),  'dot'=>'bg-red-500',     'txt'=>'text-red-400'],
+                ] as $item)
+                <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 min-w-0">
-                        <div class="w-2 h-2 rounded-sm {{ $bar['dot'] }} flex-shrink-0"></div>
-                        <span class="text-xs dark:text-slate-400 text-slate-500 truncate">{{ $bar['label'] }}</span>
+                        <span class="w-2 h-2 rounded-sm {{ $item['dot'] }} flex-shrink-0"></span>
+                        <span class="text-xs dark:text-slate-400 text-slate-500 truncate">{{ $item['label'] }}</span>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
-                        <span class="font-mono text-xs dark:text-slate-600 text-slate-400">{{ $bar['pct'] }}%</span>
-                        <span class="font-mono text-xs font-semibold dark:text-slate-300 text-slate-600">{{ $bar['val'] }}</span>
+                        <span class="font-mono text-xs {{ $item['txt'] }} font-bold">{{ $item['pct'] }}%</span>
+                        <span class="font-mono text-xs dark:text-slate-500 text-slate-400">{{ number_format($item['val']) }}</span>
                     </div>
                 </div>
-                <div class="h-1.5 dark:bg-slate-800 bg-slate-100 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full progress-fill bg-gradient-to-r {{ $bar['bg'] }}" style="width:{{ $bar['pct'] }}%"></div>
-                </div>
+                @endforeach
             </div>
-            @endforeach
         </div>
     </div>
 
-    <!-- Event Severity Distribution -->
+    <!-- Event Severity Distribution — Horizontal Bar Chart -->
     <div class="rounded-xl dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 p-4 sm:p-5">
-        <div class="flex items-center gap-2 mb-4 sm:mb-5">
+        <div class="flex items-center gap-2 mb-4">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dark:text-slate-500 text-slate-400 flex-shrink-0">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
             <h3 class="text-sm font-semibold dark:text-slate-200 text-slate-700">Event Severity Distribution</h3>
         </div>
         @php
-            $sevTotal = max(array_sum($stats['security_events']['by_severity'] ?? []), 1);
-            $sevs = [
-                ['key'=>'critical','label'=>'Critical','bg'=>'from-red-700 to-red-500',    'dot'=>'bg-red-500'],
-                ['key'=>'high',    'label'=>'High',    'bg'=>'from-orange-700 to-orange-500','dot'=>'bg-orange-500'],
-                ['key'=>'medium',  'label'=>'Medium',  'bg'=>'from-amber-700 to-amber-500',  'dot'=>'bg-amber-500'],
-                ['key'=>'low',     'label'=>'Low',     'bg'=>'from-blue-700 to-blue-500',    'dot'=>'bg-blue-500'],
+            $sevData = [
+                'critical' => $stats['security_events']['by_severity']['critical'] ?? 0,
+                'high'     => $stats['security_events']['by_severity']['high']     ?? 0,
+                'medium'   => $stats['security_events']['by_severity']['medium']   ?? 0,
+                'low'      => $stats['security_events']['by_severity']['low']      ?? 0,
             ];
         @endphp
-        <div class="flex flex-col gap-4">
-            @foreach($sevs as $s)
-            @php $val = $stats['security_events']['by_severity'][$s['key']] ?? 0; $pct = round($val/$sevTotal*100); @endphp
-            <div>
-                <div class="flex justify-between items-center mb-1.5 gap-2">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-sm {{ $s['dot'] }} flex-shrink-0"></div>
-                        <span class="text-xs dark:text-slate-400 text-slate-500">{{ $s['label'] }}</span>
-                    </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                        <span class="font-mono text-xs dark:text-slate-600 text-slate-400">{{ $pct }}%</span>
-                        <span class="font-mono text-xs font-semibold dark:text-slate-300 text-slate-600">{{ $val }}</span>
-                    </div>
-                </div>
-                <div class="h-1.5 dark:bg-slate-800 bg-slate-100 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full progress-fill bg-gradient-to-r {{ $s['bg'] }}" style="width:{{ $pct }}%"></div>
-                </div>
-            </div>
+        <div class="chart-container" style="height:160px;">
+            <canvas id="severityChart"></canvas>
+        </div>
+        <div class="flex items-center justify-center gap-4 mt-3 flex-wrap">
+            @foreach(['critical'=>['text-red-400','Critical'],'high'=>['text-orange-400','High'],'medium'=>['text-amber-400','Medium'],'low'=>['text-blue-400','Low']] as $key=>[$cls,$lbl])
+            <span class="flex items-center gap-1.5 text-xs">
+                <span class="w-2 h-2 rounded-sm {{ $key === 'critical' ? 'bg-red-500' : ($key === 'high' ? 'bg-orange-500' : ($key === 'medium' ? 'bg-amber-500' : 'bg-blue-500')) }}"></span>
+                <span class="dark:text-slate-400 text-slate-500">{{ $lbl }}: <span class="{{ $cls }} font-semibold font-mono">{{ $sevData[$key] }}</span></span>
+            </span>
             @endforeach
+        </div>
+    </div>
+</div>
+
+{{-- ============================================================
+     CHART ROW 3 — Top Pages (Bar) + Hourly Activity Today (Line)
+     Data: $topPages = [['path'=>'/dashboard','hits'=>450], ...]
+           $hourlyActivity = [['hour'=>0,'logins'=>2,'requests'=>10], ...]
+     ============================================================ --}}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 sm:mb-6">
+
+    <!-- Top Accessed Pages -->
+    <div class="rounded-xl dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 p-4 sm:p-5">
+        <div class="flex items-center gap-2 mb-4">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dark:text-slate-500 text-slate-400 flex-shrink-0">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <h3 class="text-sm font-semibold dark:text-slate-200 text-slate-700">Top Accessed Pages</h3>
+        </div>
+        <div class="chart-container" style="height:200px;">
+            <canvas id="topPagesChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Hourly Activity Today -->
+    <div class="rounded-xl dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 p-4 sm:p-5">
+        <div class="flex items-center justify-between gap-2 mb-4">
+            <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dark:text-slate-500 text-slate-400 flex-shrink-0">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <h3 class="text-sm font-semibold dark:text-slate-200 text-slate-700">Hourly Activity Today</h3>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+                <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-1 rounded-full bg-emerald-500"></span><span class="dark:text-slate-400 text-slate-500">Logins</span></span>
+                <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-1 rounded-full bg-purple-500"></span><span class="dark:text-slate-400 text-slate-500">Activity</span></span>
+            </div>
+        </div>
+        <div class="chart-container" style="height:200px;">
+            <canvas id="hourlyChart"></canvas>
         </div>
     </div>
 </div>
@@ -214,7 +279,7 @@
     </div>
 </div>
 
-<!-- Navigation Cards — 2 cols mobile, 4 cols desktop -->
+<!-- Navigation Cards -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
     @php
         $navCards = [
@@ -240,3 +305,277 @@
 </div>
 
 @endsection
+
+@push('scripts')
+<script>
+// ─── Initialize Charts with proper error handling ──────────────────────────
+function initCharts() {
+    // Check if Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js library not loaded');
+        setTimeout(initCharts, 200);
+        return;
+    }
+
+    try {
+        // Dark/Light mode detection
+        const isDark = document.documentElement.classList.contains('dark');
+        const gridColor   = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+        const tickColor   = isDark ? '#64748b' : '#94a3b8';
+        const tooltipBg   = isDark ? '#1e293b' : '#fff';
+        const tooltipBorder = isDark ? '#334155' : '#e2e8f0';
+        const tooltipTxt  = isDark ? '#e2e8f0' : '#1e293b';
+
+        Chart.defaults.font.family = 'ui-monospace, SFMono-Regular, Menlo, monospace';
+        Chart.defaults.color = tickColor;
+
+        const tooltipStyle = {
+            backgroundColor: tooltipBg,
+            borderColor: tooltipBorder,
+            borderWidth: 1,
+            titleColor: tooltipTxt,
+            bodyColor: tickColor,
+            padding: 10,
+            cornerRadius: 8,
+            displayColors: true,
+            boxPadding: 4,
+        };
+
+        const gridStyle = {
+            color: gridColor,
+            drawBorder: false,
+        };
+
+        // ─── 1. Traffic Trend Chart ───────────────────────────────────────
+        const dailyData = @json($dailyStats ?? []);
+        console.log('Traffic data loaded:', dailyData);
+
+        if (dailyData.length > 0 && document.getElementById('trafficTrendChart')) {
+            const trendLabels   = dailyData.map(d => d.date);
+            const trendRequests = dailyData.map(d => d.requests ?? 0);
+            const trendLogins   = dailyData.map(d => d.logins ?? 0);
+            const trendFailed   = dailyData.map(d => d.failed ?? 0);
+
+            new Chart(document.getElementById('trafficTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        {
+                            label: 'Requests',
+                            data: trendRequests,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59,130,246,0.10)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: trendLabels.length > 30 ? 0 : 3,
+                            pointHoverRadius: 5,
+                        },
+                        {
+                            label: 'Logins',
+                            data: trendLogins,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16,185,129,0.08)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: trendLabels.length > 30 ? 0 : 3,
+                            pointHoverRadius: 5,
+                        },
+                        {
+                            label: 'Failed',
+                            data: trendFailed,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239,68,68,0.08)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: trendLabels.length > 30 ? 0 : 3,
+                            pointHoverRadius: 5,
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false }, tooltip: tooltipStyle },
+                    scales: {
+                        x: { grid: gridStyle, ticks: { maxTicksLimit: 10, color: tickColor, font:{size:10} } },
+                        y: { grid: gridStyle, ticks: { color: tickColor, font:{size:10} }, beginAtZero: true },
+                    },
+                }
+            });
+        }
+
+        // ─── 2. Access Status Doughnut ────────────────────────────────────
+        if (document.getElementById('accessStatusChart')) {
+            const successVal = {{ $stats['page_access']['successful'] ?? 0 }};
+            const deniedVal  = {{ $stats['page_access']['denied']     ?? 0 }};
+            const failedVal  = {{ $stats['page_access']['failed']     ?? 0 }};
+
+            new Chart(document.getElementById('accessStatusChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Successful', 'Denied', 'Failed'],
+                    datasets: [{
+                        data: [successVal, deniedVal, failedVal],
+                        backgroundColor: ['#10b981','#f97316','#ef4444'],
+                        borderWidth: 0,
+                        hoverOffset: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '68%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { ...tooltipStyle, callbacks: {
+                            label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${Math.round(ctx.parsed / Math.max(successVal+deniedVal+failedVal,1) * 100)}%)`
+                        }}
+                    },
+                }
+            });
+        }
+
+        // ─── 3. Severity Distribution Bar Chart ─────────────────────────────
+        if (document.getElementById('severityChart')) {
+            // sevData from PHP below
+
+            new Chart(document.getElementById('severityChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Critical','High','Medium','Low'],
+                    datasets: [{
+                        label: 'Events',
+                        data: [
+                            {{ $stats["security_events"]["by_severity"]["critical"] ?? 0 }},
+                            {{ $stats["security_events"]["by_severity"]["high"] ?? 0 }},
+                            {{ $stats["security_events"]["by_severity"]["medium"] ?? 0 }},
+                            {{ $stats["security_events"]["by_severity"]["low"] ?? 0 }},
+                        ],
+                        backgroundColor: ['rgba(239,68,68,0.85)','rgba(249,115,22,0.85)','rgba(245,158,11,0.85)','rgba(59,130,246,0.85)'],
+                        borderRadius: 6,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false }, tooltip: tooltipStyle },
+                    scales: {
+                        x: { grid: gridStyle, ticks: { color: tickColor, font:{size:10} }, beginAtZero: true },
+                        y: { grid: { display: false }, ticks: { color: tickColor, font:{size:11} } },
+                    },
+                }
+            });
+        }
+
+        // ─── 4. Top Pages Bar Chart ──────────────────────────────────────
+        if (document.getElementById('topPagesChart')) {
+            const topPages = @json($topPages ?? []);
+            console.log('Top pages data loaded:', topPages);
+
+            if (topPages.length > 0) {
+                new Chart(document.getElementById('topPagesChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: topPages.map(p => p.path.length > 25 ? p.path.substring(0,24)+'…' : p.path),
+                        datasets: [{
+                            label: 'Hits',
+                            data: topPages.map(p => p.hits ?? p.requests ?? 0),
+                            backgroundColor: 'rgba(139,92,246,0.75)',
+                            borderRadius: 5,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: {
+                            title: (items) => {
+                                const idx = items[0].dataIndex;
+                                return topPages[idx]?.path ?? items[0].label;
+                            }
+                        }}},
+                        scales: {
+                            x: { grid: gridStyle, ticks: { color: tickColor, font:{size:10} }, beginAtZero: true },
+                            y: { grid: { display: false }, ticks: { color: tickColor, font:{size:10} } },
+                        },
+                    }
+                });
+            }
+        }
+
+        // ─── 5. Hourly Activity Chart ────────────────────────────────────
+        if (document.getElementById('hourlyChart')) {
+            const hourly = @json($hourlyActivity ?? []);
+            console.log('hourlyActivity:', hourly);
+
+            const hours  = Array.from({length:24}, (_,i) => `${String(i).padStart(2,'0')}:00`);
+            const loginsByHour   = hours.map((_,i) => hourly.find(h=>h.hour==i)?.logins   ?? 0);
+            const requestsByHour = hours.map((_,i) => hourly.find(h=>h.hour==i)?.requests ?? 0);
+
+            console.log('loginsByHour:', loginsByHour);
+            console.log('requestsByHour:', requestsByHour);
+
+            new Chart(document.getElementById('hourlyChart'), {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [
+                        {
+                            label: 'Logins',
+                            data: loginsByHour,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16,185,129,0.10)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                        },
+                        {
+                            label: 'Activity',
+                            data: requestsByHour,
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168,85,247,0.08)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false }, tooltip: tooltipStyle },
+                    scales: {
+                        x: { grid: gridStyle, ticks: { maxTicksLimit: 8, color: tickColor, font:{size:9} } },
+                        y: { grid: gridStyle, ticks: { color: tickColor, font:{size:10} }, beginAtZero: true },
+                    },
+                }
+            });
+        }
+
+        console.log('✅ All charts initialized successfully');
+    } catch (error) {
+        console.error('❌ Error initializing charts:', error);
+    }
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCharts);
+} else {
+    initCharts();
+}
+</script>
+@endpush

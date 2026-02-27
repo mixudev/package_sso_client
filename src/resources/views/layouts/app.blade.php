@@ -103,6 +103,7 @@
         @media(min-width:768px) { .truncate-path { max-width:280px; } }
         @media(min-width:1280px) { .truncate-path { max-width:360px; } }
     </style>
+    @stack('head')
 </head>
 
 <body class="dark:bg-slate-950 bg-slate-50 dark:text-slate-200 text-slate-800 min-h-screen flex transition-colors duration-200">
@@ -246,5 +247,6 @@
     updateClock();
     setInterval(updateClock, 1000);
 </script>
+@stack('scripts')
 </body>
 </html>

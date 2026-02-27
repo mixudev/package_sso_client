@@ -4,6 +4,8 @@ namespace Mixu\SSOAuth\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Mixu\SSOAuth\Services\SecurityMonitoringService;
 
 class SecurityController extends Controller
@@ -18,12 +20,13 @@ class SecurityController extends Controller
     public function dashboard(Request $request)
     {
         $days = $request->query('days', 30);
+        $from = now()->subDays($days); // used for queries below
         
-        // Get stats untuk periode tertentu
-        $stats = $this->security->getSecurityStats($days);
+        // Get stats untuk periode tertentu (cache 5 menit)
+        $stats = Cache::remember("security.stats.{$days}", now()->addMinutes(5), fn() => $this->security->getSecurityStats($days));
         
-        // Get activity trends
-        $trends = $this->security->getActivityTrends(7);
+        // Get activity trends (also cached)
+        $trends = Cache::remember("security.trends.{$days}", now()->addMinutes(5), fn() => $this->security->getActivityTrends($days));
         
         // Detect anomalies untuk user saat ini
         $userId = $request->session()->get('sso_user.id');
@@ -32,12 +35,151 @@ class SecurityController extends Controller
         // Get current user activity summary
         $userActivity = $userId ? $this->security->getUserActivitySummary($userId, 7) : null;
 
+        // Get daily stats untuk Traffic Trend Chart
+        $cacheKey = "security.dailyStats.{$days}";
+        $dailyStats = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(5), function () use ($days) {
+            $from = now()->subDays($days);
+
+            // attempt to read from summary table
+            $rows = DB::table('security_daily_stats')
+                ->where('date', '>=', $from->format('Y-m-d'))
+                ->orderBy('date')
+                ->get(['date','requests','logins','failed'])
+                ->keyBy('date');
+
+            if ($rows->isEmpty()) {
+                // fallback to expensive calculation if summary missing
+                $requestsByDay = DB::table('session_activities')
+                    ->where('created_at', '>=', $from)
+                    ->selectRaw('DATE(created_at) as date, COUNT(*) as requests')
+                    ->groupBy('date')
+                    ->pluck('requests', 'date');
+
+                $loginsByDay = DB::table('security_events')
+                    ->where('event_type', 'login')
+                    ->where('created_at', '>=', $from)
+                    ->selectRaw('DATE(created_at) as date, COUNT(*) as logins')
+                    ->groupBy('date')
+                    ->pluck('logins', 'date');
+
+                $failedByDay = DB::table('session_activities')
+                    ->where('created_at', '>=', $from)
+                    ->where('status_code', '>=', 400)
+                    ->selectRaw('DATE(created_at) as date, COUNT(*) as failed')
+                    ->groupBy('date')
+                    ->pluck('failed', 'date');
+
+                $stats = [];
+                for ($i = 0; $i < $days; $i++) {
+                    $date = now()->subDays($days - 1 - $i)->format('Y-m-d');
+                    $stats[] = [
+                        'date' => $date,
+                        'requests' => $requestsByDay[$date] ?? 0,
+                        'logins' => $loginsByDay[$date] ?? 0,
+                        'failed' => $failedByDay[$date] ?? 0,
+                    ];
+                }
+
+                return $stats;
+            }
+
+            // convert summary rows into full list for the range
+            $stats = [];
+            for ($i = 0; $i < $days; $i++) {
+                $date = now()->subDays($days - 1 - $i)->format('Y-m-d');
+                $entry = $rows->get($date);
+                $stats[] = [
+                    'date' => $date,
+                    'requests' => $entry->requests ?? 0,
+                    'logins' => $entry->logins ?? 0,
+                    'failed' => $entry->failed ?? 0,
+                ];
+            }
+            return $stats;
+        });
+
+        // Get top accessed pages (cached briefly)
+        $topPages = \Illuminate\Support\Facades\Cache::remember("security.topPages.{$days}", now()->addMinutes(5), function () use ($from) {
+            return DB::table('session_activities')
+                ->where('created_at', '>=', $from)
+                ->where('status_code', '<', 400)
+                ->groupBy('path')
+                ->selectRaw('path, COUNT(*) as hits, COUNT(DISTINCT sso_user_id) as users')
+                ->orderBy('hits', 'desc')
+                ->limit(10)
+                ->get()
+                ->map(fn($item) => [
+                    'path' => $item->path,
+                    'hits' => $item->hits ?? 0,
+                    'requests' => $item->hits ?? 0,
+                    'users' => $item->users ?? 0,
+                ])
+                ->toArray();
+        });
+
+        // Get hourly activity untuk hari ini (cached 5min)
+        $todayStart = now()->startOfDay();
+        $hourlyActivity = \Illuminate\Support\Facades\Cache::remember("security.hourlyActivity.{$todayStart->format('Y-m-d')}", now()->addMinutes(5), function () use ($todayStart) {
+            // read from summary table first
+            $rows = DB::table('security_hourly_stats')
+                ->where('date', '=', $todayStart->format('Y-m-d'))
+                ->orderBy('hour')
+                ->get(['hour','requests','logins'])
+                ->keyBy('hour');
+
+            $stats = [];
+            for ($h = 0; $h < 24; $h++) {
+                $entry = $rows->get($h);
+                if ($entry) {
+                    $stats[] = ['hour'=>$h,'logins'=>$entry->logins,'requests'=>$entry->requests];
+                } else {
+                    $stats[] = ['hour'=>$h,'logins'=>0,'requests'=>0];
+                }
+            }
+            // fallback: if summary empty, compute old way
+            $totalRequests = DB::table('session_activities')
+                ->where('created_at', '>=', $todayStart)
+                ->selectRaw('HOUR(created_at) as hour, COUNT(*) as requests')
+                ->groupBy('hour')
+                ->pluck('requests','hour');
+            $logins = DB::table('security_events')
+                ->where('event_type','login')
+                ->where('created_at','>=',$todayStart)
+                ->selectRaw('HOUR(created_at) as hour, COUNT(*) as logins')
+                ->groupBy('hour')
+                ->pluck('logins','hour');
+            // only replace if rows were all zero
+            if (collect($stats)->sum('requests') === 0 && collect($stats)->sum('logins') === 0) {
+                $stats = [];
+                for ($h = 0; $h < 24; $h++) {
+                    $stats[] = [
+                        'hour' => $h,
+                        'logins' => $logins[$h] ?? 0,
+                        'requests' => $totalRequests[$h] ?? 0,
+                    ];
+                }
+            }
+            return $stats;
+        });
+
+        // Prepare severity data
+        $sevData = [
+            'critical' => $stats['security_events']['by_severity']['critical'] ?? 0,
+            'high' => $stats['security_events']['by_severity']['high'] ?? 0,
+            'medium' => $stats['security_events']['by_severity']['medium'] ?? 0,
+            'low' => $stats['security_events']['by_severity']['low'] ?? 0,
+        ];
+
         return view('mixu-sso-auth::security.dashboard', [
             'stats' => $stats,
             'trends' => $trends,
             'anomalies' => $anomalies,
             'userActivity' => $userActivity,
             'selectedDays' => $days,
+            'dailyStats' => $dailyStats,
+            'topPages' => $topPages,
+            'hourlyActivity' => $hourlyActivity,
+            'sevData' => $sevData,
         ]);
     }
 
@@ -176,12 +318,13 @@ class SecurityController extends Controller
      */
     private function exportPageAccessLogs($output, int $days): void
     {
-        $logs = $this->security->getPageAccessLogs(['days' => $days], 10000);
-
-        // Header
+        // Use cursor to stream data
         fputcsv($output, ['Timestamp', 'User ID', 'Session ID', 'IP Address', 'Method', 'Path', 'Status Code', 'User Agent']);
 
-        foreach ($logs as $log) {
+        $query = DB::table('session_activities')->where('created_at', '>=', now()->subDays($days));
+        $query->orderBy('id');
+
+        foreach ($query->cursor() as $log) {
             fputcsv($output, [
                 $log->created_at,
                 $log->sso_user_id,
@@ -200,12 +343,11 @@ class SecurityController extends Controller
      */
     private function exportSecurityEvents($output, int $days): void
     {
-        $events = $this->security->getSecurityEvents(['days' => $days], 10000);
-
-        // Header
         fputcsv($output, ['Timestamp', 'Event Type', 'User ID', 'Email', 'IP Address', 'Severity', 'Details']);
 
-        foreach ($events as $event) {
+        $query = DB::table('security_events')->where('created_at', '>=', now()->subDays($days));
+        $query->orderBy('id');
+        foreach ($query->cursor() as $event) {
             fputcsv($output, [
                 $event->created_at,
                 $event->event_type,
@@ -223,12 +365,11 @@ class SecurityController extends Controller
      */
     private function exportAuditLogs($output, int $days): void
     {
-        $logs = $this->security->getAuditLogs(['days' => $days], 10000);
-
-        // Header
         fputcsv($output, ['Timestamp', 'User ID', 'Action', 'Entity Type', 'Entity ID', 'IP Address', 'Result', 'Details']);
 
-        foreach ($logs as $log) {
+        $query = DB::table('audit_logs')->where('created_at', '>=', now()->subDays($days));
+        $query->orderBy('id');
+        foreach ($query->cursor() as $log) {
             fputcsv($output, [
                 $log->created_at,
                 $log->user_id,
