@@ -82,7 +82,8 @@
                     <td class="font-mono whitespace-nowrap">{{ $log->created_at }}</td>
                     <td>
                         @if($log->sso_user_id)
-                            <a href="{{ route('security.user-activity', ['user_id' => $log->sso_user_id]) }}" class="font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline no-underline font-semibold transition-colors">{{ $log->sso_user_id }}</a>
+                            <div class="font-semibold dark:text-slate-200 text-slate-700">{{ $log->user_name ?? 'Unknown' }}</div>
+                            <a href="{{ route('security.user-activity', ['user_id' => $log->sso_user_id]) }}" class="font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline no-underline transition-colors">ID: {{ $log->sso_user_id }}</a>
                         @else
                             <span class="dark:text-slate-700 text-slate-300">—</span>
                         @endif

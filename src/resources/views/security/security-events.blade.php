@@ -80,7 +80,8 @@
                     <td><span class="badge badge-purple">{{ ucfirst(str_replace('_',' ',$event->event_type)) }}</span></td>
                     <td>
                         @if($event->sso_user_id)
-                            <a href="{{ route('security.user-activity', ['user_id' => $event->sso_user_id]) }}" class="font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline no-underline font-semibold transition-colors">{{ $event->sso_user_id }}</a>
+                            <div class="font-semibold dark:text-slate-200 text-slate-700">{{ $event->user_name ?? 'Unknown' }}</div>
+                            <a href="{{ route('security.user-activity', ['user_id' => $event->sso_user_id]) }}" class="font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline no-underline transition-colors">ID: {{ $event->sso_user_id }}</a>
                             @if($event->email)
                                 <div class="font-mono text-xs dark:text-slate-600 text-slate-400 mt-0.5">{{ $event->email }}</div>
                             @endif

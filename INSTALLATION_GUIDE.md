@@ -133,6 +133,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => CheckRole::class,
             'access_area' => CheckAccessArea::class,
         ]);
+        $middleware->prepend(TrackSessionActivity::class);
     })
 ```
 

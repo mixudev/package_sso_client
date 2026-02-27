@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Mixu\SSOAuth\Services\SSOAuthService;
 use Mixu\SSOAuth\Services\SecurityMonitoringService;
 use Mixu\SSOAuth\Console\Commands\CheckSSOConfig;
+use Mixu\SSOAuth\Console\Commands\UpdateSecurityStats;
 
 class MixuSSOAuthServiceProvider extends ServiceProvider
 {
@@ -43,6 +44,7 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 CheckSSOConfig::class,
+                UpdateSecurityStats::class,
             ]);
         }
 
@@ -83,11 +85,6 @@ class MixuSSOAuthServiceProvider extends ServiceProvider
             // __DIR__ . '/../resources/views' => resource_path('views/vendor/mixu-sso-auth'),
         ], 'mixu-sso-auth');
 
-        // schedule the stats rebuild command automatically when the
-        // application's scheduler is building its task list.  packages
-        // themselves do not have a Console\Kernel, so we hook via the
-        // provider instead.  the hosting app still needs to run
-        // `php artisan schedule:run` every minute (typical cron entry).
         $this->app->booted(function () {
             $this->app->make(\Illuminate\Console\Scheduling\Schedule::class)
                  ->command('security:stats --days=7')

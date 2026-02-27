@@ -225,6 +225,57 @@
             </div>
         </div>
         <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            @php
+                $unreadCount = \Illuminate\Support\Facades\DB::table('security_notifications')->where('is_read', false)->count();
+                $latestNotifs = \Illuminate\Support\Facades\DB::table('security_notifications')
+                    ->where('is_read', false)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get();
+            @endphp
+
+            <div x-data="{ open:false }" class="relative">
+                <button @click="open = !open" class="w-9 h-9 rounded-lg dark:bg-slate-800 bg-slate-100 flex items-center justify-center dark:text-slate-400 text-slate-500 dark:hover:bg-slate-700 hover:bg-slate-200 transition-all flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bell" viewBox="0 0 16 16">
+                        <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2M8 1.918l-.797.161A4 4 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4 4 0 0 0-3.203-3.92zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5 5 0 0 1 13 6c0 .88.32 4.2 1.22 6"/>
+                    </svg>
+                    @if($unreadCount > 0)
+                        <span class="absolute -top-1 -right-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-xs bg-red-500 text-white">{{ $unreadCount }}</span>
+                    @endif
+                </button>
+
+                <div x-show="open" x-cloak @click.outside="open=false" class="origin-top-right right-0 mt-2 w-96 rounded-lg shadow-lg bg-white dark:bg-slate-900 border dark:border-slate-800 z-50 animate-fade-in absolute">
+                    <div class="p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-sm font-semibold">Security Notifications</div>
+                            <div class="text-xs text-slate-500"><a href="{{ route('security.notifications') }}" class="text-blue-400">View all</a></div>
+                        </div>
+
+                        @if($latestNotifs->isEmpty())
+                            <div class="text-xs text-slate-500 py-6 text-center">No new notifications</div>
+                        @else
+                            <div class="flex flex-col gap-2 max-h-64 overflow-auto">
+                                @foreach($latestNotifs as $n)
+                                    <div class="flex items-start gap-3 p-2 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800">
+                                        <div class="flex-shrink-0">
+                                            <span class="badge {{ $n->severity === 'critical' ? 'badge-danger' : ($n->severity === 'high' ? 'badge-orange' : ($n->severity === 'medium' ? 'badge-warning' : 'badge-gray')) }}">{{ ucfirst($n->severity) }}</span>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm font-semibold dark:text-slate-200 text-slate-800 truncate">{{ $n->title }}</div>
+                                            <div class="text-xs dark:text-slate-500 text-slate-600 mt-0.5 truncate">{{ \Illuminate\Support\Str::limit($n->message ?? $n->details ?? '', 120) }}</div>
+                                            <div class="text-xs font-mono dark:text-slate-600 text-slate-400 mt-1">{{ $n->created_at }}</div>
+                                        </div>
+                                        <div class="flex-shrink-0 ml-2">
+                                            <button @click.prevent="fetch('{{ route('security.notifications.mark-read', ['id' => 'ID_PLACEHOLDER']) }}'.replace('ID_PLACEHOLDER','' + {{ $n->id }}), { method:'POST', headers:{ 'X-CSRF-TOKEN':'{{ csrf_token() }}' } }).then(()=>{ open=false; location.reload(); })" class="text-xs text-blue-500">Mark</button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
             <div class="flex items-center gap-1.5 px-2 py-1 rounded-md dark:bg-emerald-500/10 bg-emerald-50 border dark:border-emerald-500/20 border-emerald-200">
                 <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-slow"></div>
                 <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Live</span>
@@ -240,12 +291,27 @@
 </div>
 
 <script>
-    function updateClock() {
-        const el = document.getElementById('topbar-clock');
-        if (el) el.textContent = new Date().toISOString().replace('T',' ').substring(0,19) + ' UTC';
+function updateClock() {
+    const el = document.getElementById('topbar-clock');
+
+    if (el) {
+        const now = new Date();
+
+        el.textContent =
+            now.toLocaleString('id-ID', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
     }
-    updateClock();
-    setInterval(updateClock, 1000);
+}
+
+updateClock();
+setInterval(updateClock, 1000);
 </script>
 @stack('scripts')
 </body>

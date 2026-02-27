@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('email', 255)->nullable();
+            $table->string('user_name', 255)->nullable();
             $table->string('action', 100);                  // page_access, file_download, data_export, login, logout, etc
             $table->string('entity_type', 100)->nullable(); // User, Post, Order, etc
             $table->unsignedBigInteger('entity_id')->nullable();

@@ -17,6 +17,7 @@ class SecurityMonitoringService
         try {
             DB::table('audit_logs')->insert([
                 'user_id' => $data['user_id'] ?? null,
+                'user_name' => $data['user_name'] ?? null,
                 'email' => $data['email'] ?? null,
                 'action' => $data['action'] ?? 'unknown',
                 'entity_type' => $data['entity_type'] ?? null,
@@ -115,6 +116,7 @@ class SecurityMonitoringService
             // Log ke audit juga for detailed tracking
             $this->logAuditTrail([
                 'user_id' => $data['user_id'] ?? null,
+                'user_name' => $data['user_name'] ?? null,
                 'action' => 'page_access',
                 'method' => $data['method'] ?? 'GET',
                 'path' => $data['path'] ?? '',
@@ -161,6 +163,7 @@ class SecurityMonitoringService
             'event_type' => 'unknown',
             'sso_user_id' => null,
             'email' => null,
+            'user_name' => null,
             'ip_address' => null,
             'session_id' => null,
             'severity' => 'medium',
@@ -173,6 +176,7 @@ class SecurityMonitoringService
                 'event_type' => $eventData['event_type'],
                 'sso_user_id' => $eventData['sso_user_id'],
                 'email' => $eventData['email'],
+                'user_name' => $eventData['user_name'],
                 'ip_address' => $eventData['ip_address'],
                 'session_id' => $eventData['session_id'],
                 'severity' => $eventData['severity'],
@@ -184,6 +188,7 @@ class SecurityMonitoringService
             // Log to audit trail
             $this->logAuditTrail([
                 'user_id' => $eventData['sso_user_id'],
+                'user_name' => $eventData['user_name'],
                 'email' => $eventData['email'],
                 'action' => 'security_event',
                 'ip_address' => $eventData['ip_address'],
@@ -191,6 +196,27 @@ class SecurityMonitoringService
                 'details' => $eventData['details'],
                 'result' => 'logged',
             ]);
+
+            // Persist notification for UI (store all severities)
+            try {
+                DB::table('security_notifications')->insert([
+                    'sso_user_id' => $eventData['sso_user_id'] ?? null,
+                    'user_name' => $eventData['user_name'] ?? null,
+                    'email' => $eventData['email'] ?? null,
+                    'event_type' => $eventData['event_type'] ?? null,
+                    'severity' => $eventData['severity'] ?? 'medium',
+                    'title' => $eventData['title'] ?? (isset($eventData['event_type']) ? ucfirst(str_replace('_', ' ', $eventData['event_type'])) : 'Security Event'),
+                    'message' => is_string($eventData['details']) ? $eventData['details'] : (is_array($eventData['details']) ? json_encode($eventData['details']) : null),
+                    'details' => is_array($eventData['details']) ? json_encode($eventData['details']) : (is_string($eventData['details']) ? $eventData['details'] : null),
+                    'is_read' => false,
+                    'created_at' => now(),
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to persist security notification (logSecurityEvent)', [
+                    'error' => $e->getMessage(),
+                    'event' => $eventData,
+                ]);
+            }
         } catch (\Exception $e) {
             Log::error('Failed to log security event', [
                 'error' => $e->getMessage(),
@@ -272,6 +298,78 @@ class SecurityMonitoringService
                 'message' => "User had $failedAccess failed access attempts in last 30 minutes",
                 'severity' => 'medium',
             ];
+        }
+
+        // Persist anomalies as notifications (avoid duplicates within 30 minutes)
+        if (!empty($anomalies)) {
+            $userName = null;
+            if ($userId) {
+                $u = DB::table('users')->where('id', $userId)->first();
+                $userName = $u->name ?? null;
+            }
+
+            // When an anomaly of same type exists recently, update it if details changed
+            foreach ($anomalies as $anomaly) {
+                try {
+                    $recent = DB::table('security_notifications')
+                        ->where('event_type', $anomaly['type'])
+                        ->when($userId, fn($q) => $q->where('sso_user_id', $userId))
+                        ->where('created_at', '>', now()->subMinutes(60))
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+
+                    $newMessage = $anomaly['message'] ?? null;
+                    $newDetails = is_array($anomaly) ? json_encode($anomaly) : null;
+                    $newSeverity = $anomaly['severity'] ?? 'medium';
+
+                    // severity ranking
+                    $rank = ['low'=>1,'medium'=>2,'high'=>3,'critical'=>4];
+
+                    if ($recent) {
+                        $shouldUpdate = false;
+
+                        // update if message or details changed
+                        if (($recent->message ?? null) !== $newMessage) {
+                            $shouldUpdate = true;
+                        }
+
+                        // update if severity increased
+                        $existingRank = $rank[$recent->severity ?? 'medium'] ?? 2;
+                        $incomingRank = $rank[$newSeverity] ?? 2;
+                        if ($incomingRank > $existingRank) {
+                            $shouldUpdate = true;
+                        }
+
+                        if ($shouldUpdate) {
+                            DB::table('security_notifications')
+                                ->where('id', $recent->id)
+                                ->update([
+                                    'severity' => $newSeverity,
+                                    'title' => ucfirst(str_replace('_',' ',$anomaly['type'])),
+                                    'message' => $newMessage,
+                                    'details' => $newDetails,
+                                    'is_read' => false,
+                                    'created_at' => now(),
+                                ]);
+                        }
+                    } else {
+                        DB::table('security_notifications')->insert([
+                            'sso_user_id' => $userId ?? null,
+                            'user_name' => $userName,
+                            'email' => null,
+                            'event_type' => $anomaly['type'],
+                            'severity' => $newSeverity,
+                            'title' => ucfirst(str_replace('_', ' ', $anomaly['type'])),
+                            'message' => $newMessage,
+                            'details' => $newDetails,
+                            'is_read' => false,
+                            'created_at' => now(),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to persist anomaly notification', ['error' => $e->getMessage(), 'anomaly' => $anomaly]);
+                }
+            }
         }
 
         return $anomalies;
@@ -382,10 +480,32 @@ class SecurityMonitoringService
      */
     private function sendAlert(array $eventData): void
     {
+        // Log to critical channel
         Log::critical('SECURITY ALERT', [
             'event' => $eventData,
             'requires_immediate_action' => true,
         ]);
+
+        // Persist notification to security_notifications so UI can show alerts
+        try {
+            DB::table('security_notifications')->insert([
+                'sso_user_id' => $eventData['sso_user_id'] ?? null,
+                'user_name' => $eventData['user_name'] ?? null,
+                'email' => $eventData['email'] ?? null,
+                'event_type' => $eventData['event_type'] ?? null,
+                'severity' => $eventData['severity'] ?? 'medium',
+                'title' => isset($eventData['title']) ? $eventData['title'] : (isset($eventData['event_type']) ? ucfirst(str_replace('_',' ',$eventData['event_type'])) : 'Security Alert'),
+                'message' => is_string($eventData['details']) ? $eventData['details'] : (is_array($eventData['details']) ? json_encode($eventData['details']) : null),
+                'details' => is_array($eventData['details']) ? json_encode($eventData['details']) : (is_string($eventData['details']) ? $eventData['details'] : null),
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to persist security notification', [
+                'error' => $e->getMessage(),
+                'event' => $eventData,
+            ]);
+        }
     }
 
     /**

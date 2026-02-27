@@ -49,6 +49,7 @@ class LogAuditTrail
 
             $this->security->logAuditTrail([
                 'user_id' => $userId,
+                'user_name' => $request->session()->get('sso_user.name'),
                 'email' => $request->session()->get('sso_user.email'),
                 'action' => $action,
                 'method' => $request->method(),

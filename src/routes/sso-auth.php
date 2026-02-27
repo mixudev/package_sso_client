@@ -52,4 +52,14 @@ Route::middleware([
 
     Route::get('/security/export-logs', [SecurityController::class, 'exportLogs'])
         ->name('security.export-logs');
+
+    // Notifications
+    Route::get('/security/notifications', [\App\Http\Controllers\SecurityNotificationController::class, 'index'])
+        ->name('security.notifications');
+
+    Route::post('/security/notifications/{id}/mark-read', [\App\Http\Controllers\SecurityNotificationController::class, 'markAsRead'])
+        ->name('security.notifications.mark-read');
+
+    Route::post('/security/notifications/mark-all', [\App\Http\Controllers\SecurityNotificationController::class, 'markAllRead'])
+        ->name('security.notifications.mark-all');
 });

@@ -25,6 +25,7 @@ return new class extends Migration
 
             // Indexes untuk query performance
             $table->index('sso_user_id');
+            $table->string('user_name', 255)->nullable(); // optional, for easier querying without join
             $table->index('session_id');
             $table->index('ip_address');
             $table->index('created_at');
@@ -49,6 +50,7 @@ return new class extends Migration
             // Indexes
             $table->index('event_type');
             $table->index('sso_user_id');
+            $table->string('user_name', 255)->nullable(); // optional, for easier querying without join
             $table->index('ip_address');
             $table->index(['created_at', 'severity']);
         });

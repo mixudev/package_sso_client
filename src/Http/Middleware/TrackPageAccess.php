@@ -4,82 +4,120 @@ namespace Mixu\SSOAuth\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Mixu\SSOAuth\Services\SecurityMonitoringService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
-class TrackPageAccess
+class TrackSessionActivity
 {
-    public function __construct(
-        private SecurityMonitoringService $security
-    ) {}
-
     /**
      * Handle an incoming request.
+     * Track user activity untuk audit trail dan anomaly detection.
      */
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
 
-        // Track the page access
-        $this->trackAccess($request, $response);
+        // IMPORTANT: Check jika session sudah initialized
+        if (!$this->isSessionAvailable($request)) {
+            return $response;
+        }
+
+        // Log the request regardless of authentication state, allowing
+        // 404/403 and anonymous hits to be captured.  user_id will be
+        // null if not logged in.
+        if ($this->shouldLogActivity($request)) {
+            try {
+                $userId = $request->session()->has('sso_user')
+                            ? $request->session()->get('sso_user')['id'] ?? null
+                            : null;
+                $userName = $request->session()->has('sso_user')
+                            ? $request->session()->get('sso_user')['name'] ?? null
+                            : null;
+
+                DB::table('session_activities')->insert([
+                    'sso_user_id' => $userId,
+                    'user_name' => $userName,
+                    'session_id' => $request->session()->getId(),
+                    'ip_address' => $request->ip(),
+                    'method' => $request->method(),
+                    'path' => $request->path(),
+                    'status_code' => $response->getStatusCode(),
+                    'user_agent' => substr($request->userAgent(), 0, 255),
+                    'created_at' => now(),
+                ]);
+            } catch (\Exception $e) {
+                // Table mungkin belum ada, skip saja
+                Log::debug('Could not log activity (table may not exist)', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Update last_activity_at di session only for authenticated users
+        if ($request->session()->has('sso_user')) {
+            $request->session()->put('last_activity_at', now());
+        }
 
         return $response;
     }
 
     /**
-     * Track page access after response.
+     * Check jika session sudah tersedia.
      */
-    private function trackAccess(Request $request, Response $response): void
+    private function isSessionAvailable(Request $request): bool
     {
         try {
-            $userId = $request->session()->get('sso_user.id');
-            $sessionId = $request->session()->getId();
-            $statusCode = $response->getStatusCode();
-
-            // Determine result based on status code
-            if ($statusCode < 400) {
-                $result = 'success';
-            } elseif ($statusCode === 403) {
-                $result = 'denied';
-            } else {
-                $result = 'failed';
+            $request->session()->getId();
+            return true;
+        } catch (\RuntimeException $e) {
+            if (str_contains($e->getMessage(), 'Session store not set')) {
+                return false;
             }
-
-            // Log page access
-            $this->security->logPageAccess([
-                'user_id' => $userId,
-                'email' => $request->session()->get('sso_user.email'),
-                'session_id' => $sessionId,
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'method' => $request->method(),
-                'path' => $request->path(),
-                'status_code' => $statusCode,
-                'result' => $result,
-            ]);
-
-            // Log security event for 4xx errors
-            if ($statusCode >= 400) {
-                $this->security->logSecurityEvent([
-                    'event_type' => $statusCode === 403 ? 'access_denied' : 'access_failed',
-                    'sso_user_id' => $userId,
-                    'email' => $request->session()->get('sso_user.email'),
-                    'ip_address' => $request->ip(),
-                    'session_id' => $sessionId,
-                    'severity' => $statusCode === 403 ? 'high' : 'medium',
-                    'details' => [
-                        'method' => $request->method(),
-                        'path' => $request->path(),
-                        'status_code' => $statusCode,
-                    ],
-                    'user_agent' => $request->userAgent(),
-                ]);
-            }
-        } catch (\Exception $e) {
-            // Don't let tracking errors break the application
-            \Log::error('Failed to track page access', [
-                'error' => $e->getMessage(),
-            ]);
+            throw $e;
         }
+    }
+
+    /**
+     * Skip logging untuk asset requests (js, css, images, etc).
+     */
+    private function shouldLogActivity(Request $request): bool
+    {
+        $ignorePaths = [
+            '/up',
+            '/health',
+        ];
+
+        $ignorePatterns = [
+            '/\.js$/',
+            '/\.css$/',
+            '/\.map$/',
+            '/\.png$/',
+            '/\.jpg$/',
+            '/\.jpeg$/',
+            '/\.gif$/',
+            '/\.svg$/',
+            '/\.woff$/',
+            '/\.woff2$/',
+            '/\.ttf$/',
+            '/\.eot$/',
+            '/manifest\.json$/',
+        ];
+
+        $path = $request->path();
+
+        // Check direct path match
+        if (in_array($path, $ignorePaths)) {
+            return false;
+        }
+
+        // Check pattern match
+        foreach ($ignorePatterns as $pattern) {
+            if (preg_match($pattern, $path)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

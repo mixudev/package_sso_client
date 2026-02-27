@@ -85,7 +85,8 @@
                     <td class="font-mono whitespace-nowrap">{{ $log->created_at }}</td>
                     <td>
                         @if($log->user_id)
-                            <span class="font-mono text-xs font-semibold dark:text-slate-300 text-slate-600">{{ $log->user_id }}</span>
+                            <div class="font-semibold dark:text-slate-200 text-slate-700">{{ $log->user_name ?? 'Unknown' }}</div>
+                            <span class="font-mono text-xs dark:text-slate-600 text-slate-400">ID: {{ $log->user_id }}</span>
                             @if($log->email)
                                 <div class="font-mono text-xs dark:text-slate-600 text-slate-400 mt-0.5">{{ $log->email }}</div>
                             @endif

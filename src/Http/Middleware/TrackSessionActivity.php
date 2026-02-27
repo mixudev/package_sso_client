@@ -23,32 +23,35 @@ class TrackSessionActivity
             return $response;
         }
 
-        // Update last activity untuk authenticated users
-        if ($request->session()->has('sso_user')) {
-            $user = $request->session()->get('sso_user');
-            
-            // Jika database table 'session_activities' ada, update activity log
-            if ($this->shouldLogActivity($request)) {
-                try {
-                    DB::table('session_activities')->insert([
-                        'sso_user_id' => $user['id'] ?? null,
-                        'session_id' => $request->session()->getId(),
-                        'ip_address' => $request->ip(),
-                        'method' => $request->method(),
-                        'path' => $request->path(),
-                        'status_code' => $response->getStatusCode(),
-                        'user_agent' => substr($request->userAgent(), 0, 255),
-                        'created_at' => now(),
-                    ]);
-                } catch (\Exception $e) {
-                    // Table mungkin belum ada, skip saja
-                    Log::debug('Could not log activity (table may not exist)', [
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
+        // Log the request regardless of authentication state, allowing
+        // 404/403 and anonymous hits to be captured.  user_id will be
+        // null if not logged in.
+        if ($this->shouldLogActivity($request)) {
+            try {
+                $userId = $request->session()->has('sso_user')
+                            ? $request->session()->get('sso_user')['id'] ?? null
+                            : null;
 
-            // Update last_activity_at di session
+                DB::table('session_activities')->insert([
+                    'sso_user_id' => $userId,
+                    'session_id' => $request->session()->getId(),
+                    'ip_address' => $request->ip(),
+                    'method' => $request->method(),
+                    'path' => $request->path(),
+                    'status_code' => $response->getStatusCode(),
+                    'user_agent' => substr($request->userAgent(), 0, 255),
+                    'created_at' => now(),
+                ]);
+            } catch (\Exception $e) {
+                // Table mungkin belum ada, skip saja
+                Log::debug('Could not log activity (table may not exist)', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Update last_activity_at di session only for authenticated users
+        if ($request->session()->has('sso_user')) {
             $request->session()->put('last_activity_at', now());
         }
 
