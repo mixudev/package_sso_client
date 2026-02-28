@@ -177,7 +177,16 @@ Di layout file Anda (e.g., `resources/views/layouts/app.blade.php`):
 @endif
 ```
 
+
+
 ## Advanced Configuration
+
+### Build data statistik
+Gunakan perintah security:stats menghitung ulang statistik keamanan.
+
+```bash
+php artisan security:stats 
+```
 
 ### Customize Middleware Order
 

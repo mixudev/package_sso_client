@@ -3,6 +3,7 @@
 namespace Mixu\SSOAuth\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 
 class SecurityNotificationController extends Controller
@@ -16,7 +17,7 @@ class SecurityNotificationController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('vendor.mixu-sso-auth.security.notifications', [
+        return view('mixu-sso-auth::security.notifications', [
             'notifications' => $notifications,
         ]);
     }

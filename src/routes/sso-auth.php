@@ -8,31 +8,24 @@ use Mixu\SSOAuth\Http\Controllers\SsoLogoutCallbackController;
 use Mixu\SSOAuth\Http\Controllers\SecurityController;
 use Mixu\SSOAuth\Http\Controllers\LogDeletionController;
 use Mixu\SSOAuth\Http\Controllers\LogExportController;
-use App\Http\Controllers\SecurityNotificationController;
+use Mixu\SSOAuth\Http\Controllers\SecurityNotificationController;
 
 /*
 |--------------------------------------------------------------------------
-| PUBLIC AUTH ROUTES (NO TRACKING)
+| PUBLIC AUTH ROUTES 
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('auth')->name('auth.')->group(function () {
+Route::get('/login', [AuthController::class, 'redirect'])
+    ->name('login')
+    ->middleware('throttle:20,1');
 
-    Route::get('/login', [AuthController::class, 'redirect'])
-        ->name('login')
-        ->middleware('throttle:20,1');
+Route::get('/auth/callback', [AuthController::class, 'callback'])
+    ->name('auth.callback');
 
-    Route::get('/callback', [AuthController::class, 'callback'])
-        ->name('callback');
-
-    Route::post('/logout', [AuthController::class, 'logout'])
-        ->name('logout')
-        ->middleware([
-            'throttle:10,1',
-            'track.activity',
-            'audit.trail'
-        ]);
-});
+Route::post('/logout', [AuthController::class, 'logout'])
+    ->name('logout')
+    ->middleware('throttle:10,1', 'track.activity', 'audit.trail');
 
 
 /*
@@ -103,13 +96,12 @@ Route::middleware([
         | EXPORT
         |--------------------------------------------------------------------------
         */
+            
         Route::prefix('export-logs')
-            ->name('export-logs.')
             ->controller(LogExportController::class)
             ->group(function () {
-
-                Route::get('/', 'index')->name('index');
-                Route::get('/download', 'download')->name('download');
+                Route::get('/', 'index')->name('export-logs');
+                Route::get('/download', 'download')->name('export-logs.download');
         });
 
 
@@ -121,7 +113,6 @@ Route::middleware([
 
         Route::controller(LogDeletionController::class)
             ->prefix('logs')
-            ->name('logs.')
             ->group(function () {
 
             // Audit
@@ -157,13 +148,12 @@ Route::middleware([
         */
 
         Route::prefix('notifications')
-            ->name('notifications.')
             ->controller(SecurityNotificationController::class)
             ->group(function () {
 
-                Route::get('/', 'index')->name('index');
-                Route::post('{id}/mark-read', 'markAsRead')->name('mark-read');
-                Route::post('mark-all', 'markAllRead')->name('mark-all');
+                Route::get('/', 'index')->name('notifications');
+                Route::post('{id}/mark-read', 'markAsRead')->name('notifications.mark-read');
+                Route::post('mark-all', 'markAllRead')->name('notifications.mark-all');
         });
     });
 });
