@@ -402,10 +402,19 @@ class SecurityMonitoringService
             $query->where('method', $filters['method']);
         }
 
-        if (isset($filters['days'])) {
-            $query->where('created_at', '>', now()->subDays($filters['days']));
-        } else {
-            $query->where('created_at', '>', now()->subDays(7));
+        // apply explicit date/time range if requested
+        if (isset($filters['from'])) {
+            $query->where('created_at', '>=', $filters['from']);
+        }
+        if (isset($filters['to'])) {
+            $query->where('created_at', '<=', $filters['to']);
+        }
+        if (!isset($filters['from']) && !isset($filters['to'])) {
+            if (isset($filters['days'])) {
+                $query->where('created_at', '>', now()->subDays($filters['days']));
+            } else {
+                $query->where('created_at', '>', now()->subDays(7));
+            }
         }
 
         return $query->orderBy('created_at', 'desc')->paginate($perPage);
@@ -434,10 +443,19 @@ class SecurityMonitoringService
             $query->where('ip_address', $filters['ip_address']);
         }
 
-        if (isset($filters['days'])) {
-            $query->where('created_at', '>', now()->subDays($filters['days']));
-        } else {
-            $query->where('created_at', '>', now()->subDays(7));
+        // range based filter takes precedence
+        if (isset($filters['from'])) {
+            $query->where('created_at', '>=', $filters['from']);
+        }
+        if (isset($filters['to'])) {
+            $query->where('created_at', '<=', $filters['to']);
+        }
+        if (!isset($filters['from']) && !isset($filters['to'])) {
+            if (isset($filters['days'])) {
+                $query->where('created_at', '>', now()->subDays($filters['days']));
+            } else {
+                $query->where('created_at', '>', now()->subDays(7));
+            }
         }
 
         return $query->orderBy('created_at', 'desc')->paginate($perPage);
@@ -466,10 +484,19 @@ class SecurityMonitoringService
             $query->where('result', $filters['result']);
         }
 
-        if (isset($filters['days'])) {
-            $query->where('created_at', '>', now()->subDays($filters['days']));
-        } else {
-            $query->where('created_at', '>', now()->subDays(7));
+        // apply explicit range filters first
+        if (isset($filters['from'])) {
+            $query->where('created_at', '>=', $filters['from']);
+        }
+        if (isset($filters['to'])) {
+            $query->where('created_at', '<=', $filters['to']);
+        }
+        if (!isset($filters['from']) && !isset($filters['to'])) {
+            if (isset($filters['days'])) {
+                $query->where('created_at', '>', now()->subDays($filters['days']));
+            } else {
+                $query->where('created_at', '>', now()->subDays(7));
+            }
         }
 
         return $query->orderBy('created_at', 'desc')->paginate($perPage);

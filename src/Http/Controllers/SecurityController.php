@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Mixu\SSOAuth\Services\SecurityMonitoringService;
+use Carbon\Carbon;
 
 class SecurityController extends Controller
 {
@@ -188,12 +190,16 @@ class SecurityController extends Controller
      */
     public function pageAccessLogs(Request $request)
     {
+        $fromRaw = $request->query('from');
+        $toRaw   = $request->query('to');
         $filters = [
             'user_id' => $request->query('user_id'),
             'ip_address' => $request->query('ip_address'),
             'path' => $request->query('path'),
             'status_code' => $request->query('status_code'),
             'method' => $request->query('method'),
+            'from' => $fromRaw ? str_replace('T', ' ', $fromRaw) : null,
+            'to' => $toRaw ? str_replace('T', ' ', $toRaw) : null,
             'days' => $request->query('days', 7),
         ];
 
@@ -210,11 +216,15 @@ class SecurityController extends Controller
      */
     public function securityEvents(Request $request)
     {
+        $fromRaw = $request->query('from');
+        $toRaw   = $request->query('to');
         $filters = [
             'event_type' => $request->query('event_type'),
             'severity' => $request->query('severity'),
             'user_id' => $request->query('user_id'),
             'ip_address' => $request->query('ip_address'),
+            'from' => $fromRaw ? str_replace('T', ' ', $fromRaw) : null,
+            'to' => $toRaw ? str_replace('T', ' ', $toRaw) : null,
             'days' => $request->query('days', 7),
         ];
 
@@ -231,11 +241,15 @@ class SecurityController extends Controller
      */
     public function auditLogs(Request $request)
     {
+        $fromRaw = $request->query('from');
+        $toRaw   = $request->query('to');
         $filters = [
             'user_id' => $request->query('user_id'),
             'action' => $request->query('action'),
             'entity_type' => $request->query('entity_type'),
             'result' => $request->query('result'),
+            'from' => $fromRaw ? str_replace('T', ' ', $fromRaw) : null,
+            'to' => $toRaw ? str_replace('T', ' ', $toRaw) : null,
             'days' => $request->query('days', 7),
         ];
 
@@ -380,6 +394,115 @@ class SecurityController extends Controller
                 $log->result,
                 $log->details,
             ]);
+        }
+    }
+
+    public function deleteSessionActivitiesRange(Request $request)
+    {
+        $data = $request->validate([
+            'from' => 'required|date',
+            'to' => 'required|date',
+        ]);
+
+        try {
+            $deleted = DB::table('session_activities')
+                ->whereDate('created_at', '>=', $data['from'])
+                ->whereDate('created_at', '<=', $data['to'])
+                ->delete();
+            return back()->with('status', "Deleted {$deleted} session activity logs from {$data['from']} to {$data['to']}");
+        } catch (\Exception $e) {
+            Log::error('Failed to delete session activities range', ['error' => $e->getMessage(), 'input' => $request->all()]);
+            return back()->with('error', 'Could not delete logs for the selected range');
+        }
+    }
+
+    public function deleteSessionActivitiesDay(Request $request)
+    {
+        $data = $request->validate(['date' => 'required|date']);
+        try {
+            // delete by date portion only, avoiding timezone issues
+            $deleted = DB::table('session_activities')
+                ->whereDate('created_at', $data['date'])
+                ->delete();
+            return back()->with('status', "Deleted {$deleted} session activity logs for {$data['date']}");
+        } catch (\Exception $e) {
+            Log::error('Failed to delete session activities for day', ['error' => $e->getMessage(), 'input' => $request->all()]);
+            return back()->with('error', 'Could not delete logs for the selected day');
+        }
+    }
+
+    public function deleteSessionActivitiesAll(Request $request)
+    {
+        $data = $request->validate(['confirm_all' => 'required|string']);
+        if (($data['confirm_all'] ?? '') !== 'DELETE ALL') {
+            return back()->with('error', 'Confirmation phrase mismatch. Type "DELETE ALL" to confirm.');
+        }
+        try {
+            $deleted = DB::table('session_activities')->delete();
+            return back()->with('status', "Deleted all session activity logs ({$deleted} records)");
+        } catch (\Exception $e) {
+            Log::error('Failed to delete all session activities', ['error' => $e->getMessage()]);
+            return back()->with('error', 'Failed to delete all logs');
+        }
+    }
+
+    /* ----------------- Security Events Deletions ----------------- */
+
+    public function deleteSecurityEvent(Request $request, $id)
+    {
+        try {
+            $deleted = DB::table('security_events')->where('id', $id)->delete();
+            if ($deleted) {
+                return back()->with('status', 'Event deleted');
+            }
+            return back()->with('error', 'Event not found');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete security event', ['id' => $id, 'error' => $e->getMessage()]);
+            return back()->with('error', 'Could not delete event');
+        }
+    }
+
+    public function deleteSecurityEventsRange(Request $request)
+    {
+        $data = $request->validate(['from' => 'required|date','to' => 'required|date']);
+        try {
+            $deleted = DB::table('security_events')
+                ->whereDate('created_at', '>=', $data['from'])
+                ->whereDate('created_at', '<=', $data['to'])
+                ->delete();
+            return back()->with('status', "Deleted {$deleted} security events from {$data['from']} to {$data['to']}");
+        } catch (\Exception $e) {
+            Log::error('Failed to delete security events range', ['error' => $e->getMessage(), 'input' => $request->all()]);
+            return back()->with('error', 'Could not delete events for the selected range');
+        }
+    }
+
+    public function deleteSecurityEventsDay(Request $request)
+    {
+        $data = $request->validate(['date' => 'required|date']);
+        try {
+            $deleted = DB::table('security_events')
+                ->whereDate('created_at', $data['date'])
+                ->delete();
+            return back()->with('status', "Deleted {$deleted} security events for {$data['date']}");
+        } catch (\Exception $e) {
+            Log::error('Failed to delete security events for day', ['error' => $e->getMessage(), 'input' => $request->all()]);
+            return back()->with('error', 'Could not delete events for the selected day');
+        }
+    }
+
+    public function deleteSecurityEventsAll(Request $request)
+    {
+        $data = $request->validate(['confirm_all' => 'required|string']);
+        if (($data['confirm_all'] ?? '') !== 'DELETE ALL') {
+            return back()->with('error', 'Confirmation phrase mismatch. Type "DELETE ALL" to confirm.');
+        }
+        try {
+            $deleted = DB::table('security_events')->delete();
+            return back()->with('status', "Deleted all security events ({$deleted} records)");
+        } catch (\Exception $e) {
+            Log::error('Failed to delete all security events', ['error' => $e->getMessage()]);
+            return back()->with('error', 'Failed to delete all events');
         }
     }
 }
