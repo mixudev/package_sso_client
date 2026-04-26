@@ -67,17 +67,25 @@ class SSOAuthService
     /**
      * Generate URL untuk redirect user ke MixuAuth (authorize).
      * State = CSRF protection.
+     * Code Challenge = PKCE protection.
      */
-    public function getAuthorizeUrl(string $state): string
+    public function getAuthorizeUrl(string $state, ?string $codeChallenge = null): string
     {
         $base = rtrim($this->config['base_url'], '/');
-        $params = http_build_query([
+        $paramsArray = [
             'response_type' => 'code',
             'client_id' => $this->config['client_id'],
             'redirect_uri' => $this->config['redirect_uri'],
             'scope' => $this->config['scopes'],
             'state' => $state,
-        ]);
+        ];
+
+        if ($codeChallenge) {
+            $paramsArray['code_challenge'] = $codeChallenge;
+            $paramsArray['code_challenge_method'] = 'S256';
+        }
+
+        $params = http_build_query($paramsArray);
 
         return $base . $this->config['authorize_url'] . '?' . $params;
     }
@@ -95,21 +103,27 @@ class SSOAuthService
      *
      * @return array{access_token: string, refresh_token: string, expires_in: int}|null
      */
-    public function exchangeCodeForToken(string $code): ?array
+    public function exchangeCodeForToken(string $code, ?string $codeVerifier = null): ?array
     {
         $this->clearLastError();
         $base = rtrim($this->config['base_url'], '/');
         $url = $base . $this->config['token_url'];
 
+        $postData = [
+            'grant_type' => 'authorization_code',
+            'client_id' => $this->config['client_id'],
+            'client_secret' => $this->config['client_secret'],
+            'redirect_uri' => $this->config['redirect_uri'],
+            'code' => $code,
+        ];
+
+        if ($codeVerifier) {
+            $postData['code_verifier'] = $codeVerifier;
+        }
+
         $response = Http::asForm()
             ->timeout(15)
-            ->post($url, [
-                'grant_type' => 'authorization_code',
-                'client_id' => $this->config['client_id'],
-                'client_secret' => $this->config['client_secret'],
-                'redirect_uri' => $this->config['redirect_uri'],
-                'code' => $code,
-            ]);
+            ->post($url, $postData);
 
         if (! $response->successful()) {
             $this->setLastError(

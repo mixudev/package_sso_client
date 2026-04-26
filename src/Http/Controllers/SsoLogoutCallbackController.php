@@ -39,6 +39,19 @@ class SsoLogoutCallbackController
 
         $ssoUserId = $data['user_id'] ?? null;
         $email = $data['email'] ?? null;
+        $timestamp = $request->header('X-SSO-Timestamp') ?? $data['timestamp'] ?? null;
+
+        // Replay Attack Prevention
+        if ($timestamp) {
+            $age = abs(now()->timestamp - (int) $timestamp);
+            if ($age > 300) { // 5 menit
+                Log::warning('Global logout webhook: replay attack detected', ['age_seconds' => $age]);
+                return response()->json(['error' => 'Replay attack detected'], 400);
+            }
+        } else {
+            Log::warning('Global logout webhook: missing timestamp');
+            return response()->json(['error' => 'Missing timestamp'], 400);
+        }
 
         if (! $ssoUserId && ! $email) {
             Log::warning('Global logout webhook: missing user_id and email');

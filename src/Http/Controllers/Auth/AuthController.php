@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use Illuminate\Support\Str;
 use Mixu\SSOAuth\Services\SSOAuthService;
 
 class AuthController
@@ -29,7 +30,12 @@ class AuthController
         $request->session()->put('oauth_state', $state);
         $request->session()->put('oauth_intended_url', $request->query('intended', url()->previous()));
 
-        $url = $this->sso->getAuthorizeUrl($state);
+        // PKCE: Generate code_verifier and code_challenge
+        $codeVerifier = Str::random(128);
+        $codeChallenge = strtr(rtrim(base64_encode(hash('sha256', $codeVerifier, true)), '='), '+/', '-_');
+        $request->session()->put('oauth_code_verifier', $codeVerifier);
+
+        $url = $this->sso->getAuthorizeUrl($state, $codeChallenge);
         return redirect()->away($url);
     }
 
@@ -54,7 +60,10 @@ class AuthController
             return redirect()->route('home')->with('error', __('Login was cancelled or failed.'));
         }
 
-        $tokens = $this->sso->exchangeCodeForToken($code);
+        // PKCE: Ambil code_verifier dari session
+        $codeVerifier = $request->session()->pull('oauth_code_verifier');
+
+        $tokens = $this->sso->exchangeCodeForToken($code, $codeVerifier);
         if (! $tokens) {
             Log::warning('Failed to exchange OAuth code for token.');
             return redirect()->route('home')->with('error', __('Could not complete login. Please try again.'));
