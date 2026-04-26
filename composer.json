@@ -39,16 +39,16 @@
     },
     "require": {
         "php": "^8.2",
-        "illuminate/support": "^12.0",
-        "illuminate/database": "^12.0",
-        "illuminate/auth": "^12.0",
-        "illuminate/http": "^12.0",
-        "illuminate/contracts": "^12.0"
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/database": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/auth": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/http": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/contracts": "^11.0 || ^12.0 || ^13.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.5.3",
+        "phpunit/phpunit": "^11.5",
         "mockery/mockery": "^1.6",
-        "laravel/framework": "^12.0"
+        "laravel/framework": "^11.0 || ^12.0 || ^13.0"
     },
     "autoload": {
         "psr-4": {

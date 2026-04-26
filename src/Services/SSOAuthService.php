@@ -209,13 +209,10 @@ class SSOAuthService
             return null;
         }
 
-        return [
-            'id' => $id,
-            'name' => $data['name'] ?? '',
-            'email' => $data['email'] ?? '',
-            'roles' => $this->normalizeList($data['roles'] ?? []),
-            'access_areas' => $this->normalizeList($data['access_areas'] ?? []),
-        ];
+        $data['roles'] = $this->normalizeList($data['roles'] ?? []);
+        $data['access_areas'] = $this->normalizeList($data['access_areas'] ?? []);
+
+        return $data;
     }
 
     /**
